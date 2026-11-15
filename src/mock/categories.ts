@@ -1,0 +1,78 @@
+import type { Category } from '../types';
+
+export const MOCK_CATEGORIES: Category[] = [
+  {
+    id: 'cat-rice',
+    slug: 'rice-grains',
+    name: { en: 'Rice and Grains', ta: 'அரிசி & தானியங்கள்' },
+    icon: 'Wheat',
+    tint: 'rice',
+    image: 'ponni-rice',
+  },
+  {
+    id: 'cat-dal',
+    slug: 'dals-pulses',
+    name: { en: 'Dals and Pulses', ta: 'பருப்பு வகைகள்' },
+    icon: 'Bean',
+    tint: 'dal',
+    image: 'toor-dal',
+  },
+  {
+    id: 'cat-oil',
+    slug: 'oils',
+    name: { en: 'Oils', ta: 'எண்ணெய் வகைகள்' },
+    icon: 'Droplets',
+    tint: 'oil',
+    image: 'gingelly-oil',
+  },
+  {
+    id: 'cat-spice',
+    slug: 'spices-masala',
+    name: { en: 'Spices and Masala', ta: 'மசாலா & நறுமணப் பொருட்கள்' },
+    icon: 'Flame',
+    tint: 'spice',
+    image: 'turmeric-spices',
+  },
+  {
+    id: 'cat-dairy',
+    slug: 'dairy',
+    name: { en: 'Dairy', ta: 'பால் பொருட்கள்' },
+    icon: 'Milk',
+    tint: 'dairy',
+  },
+  {
+    id: 'cat-snacks',
+    slug: 'snacks',
+    name: { en: 'Snacks', ta: 'தின்பண்டங்கள்' },
+    icon: 'Cookie',
+    tint: 'dal',
+  },
+  {
+    id: 'cat-beverages',
+    slug: 'beverages',
+    name: { en: 'Beverages', ta: 'பானங்கள்' },
+    icon: 'Coffee',
+    tint: 'spice',
+  },
+  {
+    id: 'cat-household',
+    slug: 'household',
+    name: { en: 'Household', ta: 'வீட்டு உபயோகம்' },
+    icon: 'Sparkles',
+    tint: 'salt',
+  },
+  {
+    id: 'cat-personal-care',
+    slug: 'personal-care',
+    name: { en: 'Personal Care', ta: 'தனிநபர் பராமரிப்பு' },
+    icon: 'HeartHandshake',
+    tint: 'dairy',
+  },
+  {
+    id: 'cat-fruits-veg',
+    slug: 'fruits-vegetables',
+    name: { en: 'Fruits and Vegetables', ta: 'பழங்கள் & காய்கறிகள்' },
+    icon: 'Apple',
+    tint: 'rice',
+  },
+];

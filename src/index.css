@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand & Semantic Colors */
+  --color-fresh-green: #1B8A4B;
+  --color-fresh-green-hover: #15733E;
+  --color-bright-green: #26A65B;
+  --color-light-green: #E6F4EC;
+  --color-deep-forest: #16281F;
+
+  --color-warm-yellow: #FFC83D;
+  --color-warm-yellow-soft: #FFF6D6;
+
+  --color-dark-ink: #1F2933;
+  --color-muted-text: #6B7782;
+  --color-soft-grey: #F5F7F6;
+  --color-border-grey: #D5DCE0;
+  --color-alert-red: #E5484D;
+  --color-alert-red-soft: #FDECEC;
+
+  /* Product Image Tint Backgrounds */
+  --color-tint-rice: #F3E9C6;
+  --color-tint-dal: #F7D98B;
+  --color-tint-oil: #FBE38A;
+  --color-tint-spice: #E3DCCB;
+  --color-tint-dairy: #DCEBFA;
+  --color-tint-salt: #ECEFF1;
+
+  /* Typography */
+  --font-heading: "Poppins", "Noto Sans Tamil", system-ui, sans-serif;
+  --font-sans: "Inter", "Noto Sans Tamil", system-ui, -apple-system, sans-serif;
+  --font-tamil: "Noto Sans Tamil", "Inter", sans-serif;
+
+  /* Radius & Shadows */
+  --radius-card: 12px;
+  --shadow-card: 0 2px 10px -2px rgba(31, 41, 51, 0.06), 0 1px 3px 0 rgba(31, 41, 51, 0.04);
+  --shadow-card-hover: 0 10px 24px -4px rgba(31, 41, 51, 0.10), 0 2px 6px -1px rgba(31, 41, 51, 0.05);
+  --shadow-sticky: 0 -4px 16px -2px rgba(31, 41, 51, 0.08);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: var(--color-dark-ink);
+    background-color: var(--color-soft-grey);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html[lang="ta"] {
+    font-family: var(--font-tamil);
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: var(--font-heading);
+    text-wrap: balance;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--color-soft-grey);
+    color: var(--color-dark-ink);
+  }
+
+  /* Focus ring accessibility */
+  :focus-visible {
+    outline: 2px solid var(--color-fresh-green);
+    outline-offset: 2px;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

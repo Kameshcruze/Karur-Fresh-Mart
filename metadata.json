@@ -1,0 +1,6 @@
+{
+  "name": "Karur Fresh Mart",
+  "description": "Fast neighborhood grocery ordering and home delivery in Karur, Tamil Nadu.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

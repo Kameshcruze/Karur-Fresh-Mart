@@ -1,0 +1,55 @@
+import type { Address } from '../types';
+
+export const KARUR_STORE_COORDS = {
+  lat: 10.9601,
+  lng: 78.0766,
+  name: 'Karur Fresh Mart Hub — Jawahar Bazaar',
+};
+
+export const MOCK_ADDRESSES: Address[] = [
+  {
+    id: 'addr-karur-1',
+    userId: 'user-cust-1',
+    label: 'Home',
+    recipientName: 'Senthil Kumar',
+    mobile: '9842241088',
+    door: '14/2',
+    street: 'Anna Nagar 2nd Cross, Thanthonimalai',
+    landmark: 'Near Thanthonimalai Temple Arch',
+    area: 'Thanthonimalai',
+    pincode: '639005',
+    lat: 10.9532,
+    lng: 78.0819,
+    isDefault: true,
+  },
+  {
+    id: 'addr-karur-2',
+    userId: 'user-cust-1',
+    label: 'Work',
+    recipientName: 'Senthil Kumar',
+    mobile: '9842241088',
+    door: '88',
+    street: 'Sengunthapuram Main Road, Vengamedu',
+    landmark: 'Opposite Textile Park Gate',
+    area: 'Vengamedu',
+    pincode: '639006',
+    lat: 10.9698,
+    lng: 78.0672,
+    isDefault: false,
+  },
+  {
+    id: 'addr-karur-3',
+    userId: 'user-cust-1',
+    label: 'Other',
+    recipientName: 'Meenakshi Sundaram',
+    mobile: '9842255912',
+    door: '27A',
+    street: 'Kovai Road, Gandhigramam North',
+    landmark: 'Behind CSI Church',
+    area: 'Gandhigramam',
+    pincode: '639004',
+    lat: 10.9642,
+    lng: 78.0544,
+    isDefault: false,
+  },
+];

@@ -1,0 +1,173 @@
+import type { Combo } from '../types';
+
+/**
+ * Two curated Karur grocery combos (Individual ₹2,450 and Family ₹6,890).
+ * Each combo contains 8 mandatory items; customers can choose among 2 brand options
+ * per item (never remove an item). Price adjusts by the brand price difference.
+ */
+export const MOCK_COMBOS: Combo[] = [
+  {
+    id: 'combo-individual',
+    type: 'individual',
+    name: {
+      en: 'Individual Starter Provision Pack',
+      ta: 'தனிநபர் மாதாந்திர மளிகை தொகுப்பு',
+    },
+    description: {
+      en: '8 essential kitchen staples sized for 1–2 people in Karur. Pick your preferred brand for every item.',
+      ta: '1–2 நபர்களுக்கான 8 அத்தியாவசிய சமையலறை பொருட்கள். ஒவ்வொரு பொருளுக்கும் விருப்பமான பிராண்டைத் தேர்வு செய்யலாம்.',
+    },
+    price: 2450,
+    servesPeople: '1–2 people',
+    imageTint: 'rice',
+    image: 'ponni-rice',
+    items: [
+      {
+        id: 'ci-ind-ponni',
+        productGroup: { en: 'Ponni Boiled Rice (10 kg)', ta: 'பொன்னி புழுங்கல் அரிசி (10 கிலோ)' },
+        quantity: 1,
+        unit: '10 kg',
+        defaultProductId: 'prod-ponni-rice-10kg',
+        allowedProductIds: ['prod-ponni-rice-10kg', 'prod-ponni-rice-10kg-crown'],
+      },
+      {
+        id: 'ci-ind-idly',
+        productGroup: { en: 'Idly Rice (5 kg)', ta: 'இட்லி அரிசி (5 கிலோ)' },
+        quantity: 2,
+        unit: '5 kg',
+        defaultProductId: 'prod-idly-rice-5kg',
+        allowedProductIds: ['prod-idly-rice-5kg', 'prod-idly-rice-5kg-crown'],
+      },
+      {
+        id: 'ci-ind-toor',
+        productGroup: { en: 'Toor Dal (1 kg)', ta: 'துவரம் பருப்பு (1 கிலோ)' },
+        quantity: 3,
+        unit: '1 kg',
+        defaultProductId: 'prod-toor-dal-1kg',
+        allowedProductIds: ['prod-toor-dal-1kg', 'prod-toor-dal-1kg-amaravathi'],
+      },
+      {
+        id: 'ci-ind-oil',
+        productGroup: { en: 'Sunflower Oil (1 L)', ta: 'சன்ஃபிளவர் எண்ணெய் (1 லிட்டர்)' },
+        quantity: 3,
+        unit: '1 L',
+        defaultProductId: 'prod-sunflower-oil-1l',
+        allowedProductIds: ['prod-sunflower-oil-1l', 'prod-sunflower-oil-1l-svs'],
+      },
+      {
+        id: 'ci-ind-pepper',
+        productGroup: { en: 'Black Pepper Powder (100 g)', ta: 'மிளகுத் தூள் (100 கிராம்)' },
+        quantity: 1,
+        unit: '100 g',
+        defaultProductId: 'prod-shakthi-pepper-100g',
+        allowedProductIds: ['prod-shakthi-pepper-100g', 'prod-aachi-pepper-100g'],
+      },
+      {
+        id: 'ci-ind-turmeric',
+        productGroup: { en: 'Turmeric Powder (200 g)', ta: 'மஞ்சள் தூள் (200 கிராம்)' },
+        quantity: 2,
+        unit: '200 g',
+        defaultProductId: 'prod-ramkumar-turmeric-200g',
+        allowedProductIds: ['prod-ramkumar-turmeric-200g', 'prod-shakthi-turmeric-200g'],
+      },
+      {
+        id: 'ci-ind-tea',
+        productGroup: { en: 'Tea Powder (250 g)', ta: 'தேயிலைத் தூள் (250 கிராம்)' },
+        quantity: 1,
+        unit: '250 g',
+        defaultProductId: 'prod-chakra-tea-250g',
+        allowedProductIds: ['prod-chakra-tea-250g', 'prod-avt-tea-250g'],
+      },
+      {
+        id: 'ci-ind-salt',
+        productGroup: { en: 'Iodized Salt (1 kg)', ta: 'உப்பு (1 கிலோ)' },
+        quantity: 2,
+        unit: '1 kg',
+        defaultProductId: 'prod-tata-salt-1kg',
+        allowedProductIds: ['prod-tata-salt-1kg', 'prod-aashirvaad-salt-1kg'],
+      },
+    ],
+  },
+  {
+    id: 'combo-family',
+    type: 'family',
+    name: {
+      en: 'Karur Monthly Family Provision Box',
+      ta: 'கரூர் குடும்ப மாதாந்திர மளிகை தொகுப்பு',
+    },
+    description: {
+      en: 'Complete monthly pantry bundle for 4–5 people with 8 customizable staple groups and 2 trusted brands each.',
+      ta: '4–5 நபர்கள் கொண்ட குடும்பத்திற்கான 8 முழுமையான மளிகை பொருட்கள் மற்றும் பிராண்ட் தேர்வு வசதி.',
+    },
+    price: 6890,
+    servesPeople: '4–5 people',
+    imageTint: 'dal',
+    image: 'toor-dal',
+    items: [
+      {
+        id: 'ci-fam-ponni',
+        productGroup: { en: 'Ponni Boiled Rice (10 kg)', ta: 'பொன்னி புழுங்கல் அரிசி (10 கிலோ)' },
+        quantity: 4,
+        unit: '10 kg',
+        defaultProductId: 'prod-ponni-rice-10kg',
+        allowedProductIds: ['prod-ponni-rice-10kg', 'prod-ponni-rice-10kg-crown'],
+      },
+      {
+        id: 'ci-fam-idly',
+        productGroup: { en: 'Idly Rice (5 kg)', ta: 'இட்லி அரிசி (5 கிலோ)' },
+        quantity: 3,
+        unit: '5 kg',
+        defaultProductId: 'prod-idly-rice-5kg',
+        allowedProductIds: ['prod-idly-rice-5kg', 'prod-idly-rice-5kg-crown'],
+      },
+      {
+        id: 'ci-fam-toor',
+        productGroup: { en: 'Toor Dal (1 kg)', ta: 'துவரம் பருப்பு (1 கிலோ)' },
+        quantity: 6,
+        unit: '1 kg',
+        defaultProductId: 'prod-toor-dal-1kg',
+        allowedProductIds: ['prod-toor-dal-1kg', 'prod-toor-dal-1kg-amaravathi'],
+      },
+      {
+        id: 'ci-fam-oil',
+        productGroup: { en: 'Sunflower Oil (1 L)', ta: 'சன்ஃபிளவர் எண்ணெய் (1 லிட்டர்)' },
+        quantity: 7,
+        unit: '1 L',
+        defaultProductId: 'prod-sunflower-oil-1l',
+        allowedProductIds: ['prod-sunflower-oil-1l', 'prod-sunflower-oil-1l-svs'],
+      },
+      {
+        id: 'ci-fam-pepper',
+        productGroup: { en: 'Black Pepper Powder (100 g)', ta: 'மிளகுத் தூள் (100 கிராம்)' },
+        quantity: 3,
+        unit: '100 g',
+        defaultProductId: 'prod-shakthi-pepper-100g',
+        allowedProductIds: ['prod-shakthi-pepper-100g', 'prod-aachi-pepper-100g'],
+      },
+      {
+        id: 'ci-fam-turmeric',
+        productGroup: { en: 'Turmeric Powder (200 g)', ta: 'மஞ்சள் தூள் (200 கிராம்)' },
+        quantity: 4,
+        unit: '200 g',
+        defaultProductId: 'prod-ramkumar-turmeric-200g',
+        allowedProductIds: ['prod-ramkumar-turmeric-200g', 'prod-shakthi-turmeric-200g'],
+      },
+      {
+        id: 'ci-fam-tea',
+        productGroup: { en: 'Tea Powder (250 g)', ta: 'தேயிலைத் தூள் (250 கிராம்)' },
+        quantity: 4,
+        unit: '250 g',
+        defaultProductId: 'prod-chakra-tea-250g',
+        allowedProductIds: ['prod-chakra-tea-250g', 'prod-avt-tea-250g'],
+      },
+      {
+        id: 'ci-fam-sugar',
+        productGroup: { en: 'Refined Sugar (1 kg)', ta: 'சர்க்கரை (1 கிலோ)' },
+        quantity: 8,
+        unit: '1 kg',
+        defaultProductId: 'prod-parrys-sugar-1kg',
+        allowedProductIds: ['prod-parrys-sugar-1kg', 'prod-dhampure-sugar-1kg'],
+      },
+    ],
+  },
+];

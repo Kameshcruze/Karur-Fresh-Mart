@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CreditCard, RotateCcw } from 'lucide-react';
-import { Badge, Button, Card } from '../../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ListSkeleton } from '../../components/ui';
 import { useI18n } from '../../context/I18nContext';
 import { getOrders, refundOrderPayment } from '../../services';
 import type { Order, PaymentMethod, PaymentStatus } from '../../types';
@@ -12,15 +12,52 @@ export function AdminPaymentsPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | PaymentStatus>('all');
   const [methodFilter, setMethodFilter] = useState<'all' | PaymentMethod>('all');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const loadData = useCallback(async () => {
-    const list = await getOrders();
-    setOrders(list);
+    try {
+      const list = await getOrders();
+      setOrders(list);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const paymentStatusLabel = (st: PaymentStatus): string => {
+    switch (st) {
+      case 'paid':
+        return t('common.paymentStatusPaid');
+      case 'refunded':
+        return t('common.paymentStatusRefunded');
+      case 'failed':
+        return t('common.paymentStatusFailed');
+      default:
+        return t('common.paymentStatusPending');
+    }
+  };
+
+  const methodLabel = (method: PaymentMethod): string => {
+    switch (method) {
+      case 'upi':
+        return t('checkout.payUpi');
+      case 'card':
+        return t('checkout.payCard');
+      case 'netbanking':
+        return t('checkout.payNetBanking');
+      case 'wallet':
+        return t('checkout.payWallet');
+      case 'cod':
+        return t('checkout.payCod');
+    }
+  };
 
   const kpis = useMemo(() => {
     let totalCollected = 0;
@@ -117,32 +154,42 @@ export function AdminPaymentsPage() {
               type="button"
               onClick={() => setStatusFilter(st)}
               className={[
-                'min-h-[38px] px-3.5 rounded-[10px] text-xs font-semibold capitalize cursor-pointer',
+                'min-h-[38px] px-3.5 rounded-[10px] text-xs font-semibold cursor-pointer',
                 statusFilter === st
                   ? 'bg-fresh-green text-white'
                   : 'bg-white border border-border-grey text-dark-ink hover:bg-soft-grey',
               ].join(' ')}
             >
-              {st === 'all' ? t('admin.tabAll') : st}
+              {st === 'all' ? t('admin.filterStatusAllPayments') : paymentStatusLabel(st)}
             </button>
           ))}
         </div>
 
         <select
-          aria-label="Filter payment method"
+          aria-label={t('admin.filterMethodAll')}
           value={methodFilter}
           onChange={(e) => setMethodFilter(e.target.value as 'all' | PaymentMethod)}
           className="min-h-[38px] px-3 rounded-[10px] border border-border-grey bg-white text-xs font-semibold text-dark-ink cursor-pointer"
         >
           <option value="all">{t('admin.filterMethodAll')}</option>
-          <option value="upi">UPI</option>
-          <option value="card">Card</option>
-          <option value="netbanking">Net Banking</option>
-          <option value="wallet">Wallet</option>
-          <option value="cod">COD</option>
+          <option value="upi">{t('checkout.payUpi')}</option>
+          <option value="card">{t('checkout.payCard')}</option>
+          <option value="netbanking">{t('checkout.payNetBanking')}</option>
+          <option value="wallet">{t('checkout.payWallet')}</option>
+          <option value="cod">{t('checkout.payCod')}</option>
         </select>
       </div>
 
+      {loading ? (
+        <ListSkeleton rows={4} rowHeightClass="h-16" />
+      ) : hasError ? (
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadData()}
+        />
+      ) : (
       <Card padding="none" className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">
@@ -165,13 +212,13 @@ export function AdminPaymentsPage() {
                   <td className="py-3.5 px-4">
                     <p className="font-semibold text-dark-ink">{order.customerName}</p>
                     <p className="text-xs text-muted-text tabular-nums">
-                      {order.payment.transactionRef ?? 'COD Settlement'}
+                      {order.payment.transactionRef ?? t('admin.codSettlementRef')}
                     </p>
                   </td>
                   <td className="py-3.5 px-4">
-                    <span className="inline-flex items-center gap-1.5 uppercase font-semibold text-xs text-dark-ink">
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-dark-ink">
                       <CreditCard className="w-3.5 h-3.5 text-fresh-green" aria-hidden="true" />
-                      {order.payment.method}
+                      {methodLabel(order.payment.method)}
                     </span>
                   </td>
                   <td className="py-3.5 px-4">
@@ -184,7 +231,7 @@ export function AdminPaymentsPage() {
                             : 'yellow'
                       }
                     >
-                      {order.payment.status}
+                      {paymentStatusLabel(order.payment.status)}
                     </Badge>
                   </td>
                   <td className="py-3.5 px-4 text-right font-heading font-bold tabular-nums">
@@ -212,6 +259,7 @@ export function AdminPaymentsPage() {
           </table>
         </div>
       </Card>
+      )}
     </div>
   );
 }

@@ -9,7 +9,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Badge, Card } from '../../components/ui';
+import { Badge, Card, ErrorStateCard, ListSkeleton } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { useI18n } from '../../context/I18nContext';
 import {
@@ -32,15 +32,24 @@ export function DeliveryHomePage() {
   const [partnerId, setPartnerId] = useState<string>('dp-1');
   const [filter, setFilter] = useState<QueueFilter>('all');
   const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  const locale = lang === 'ta' ? 'ta-IN' : 'en-IN';
 
   const loadData = useCallback(async () => {
-    const partners = await getDeliveryPartners();
-    const resolved = resolvePartnerForUser(user?.id, user?.mobile, partners);
-    const activePartnerId = resolved?.id ?? 'dp-1';
-    setPartnerId(activePartnerId);
-    const assigned = await getAssignedDeliveries(activePartnerId);
-    setOrders(assigned);
-    setLoading(false);
+    try {
+      const partners = await getDeliveryPartners();
+      const resolved = resolvePartnerForUser(user?.id, user?.mobile, partners);
+      const activePartnerId = resolved?.id ?? 'dp-1';
+      setPartnerId(activePartnerId);
+      const assigned = await getAssignedDeliveries(activePartnerId);
+      setOrders(assigned);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [user?.id, user?.mobile]);
 
   useEffect(() => {
@@ -94,7 +103,7 @@ export function DeliveryHomePage() {
       case 'delivered':
         return <Badge tone="dark">{t('delivery.statusDelivered')}</Badge>;
       default:
-        return <Badge tone="neutral">{status}</Badge>;
+        return <Badge tone="neutral">{t('orders.statusCancelled')}</Badge>;
     }
   };
 
@@ -105,7 +114,7 @@ export function DeliveryHomePage() {
           {t('delivery.myDeliveriesTitle')}
         </h1>
         <span className="text-xs text-muted-text tabular-nums">
-          {activeOrders.length} active
+          {t('delivery.activeCountBadge', { count: activeOrders.length })}
         </span>
       </div>
 
@@ -192,10 +201,14 @@ export function DeliveryHomePage() {
 
       {/* Assigned Orders List */}
       {loading ? (
-        <div className="space-y-3">
-          <Card className="h-32 animate-pulse bg-white/80" />
-          <Card className="h-32 animate-pulse bg-white/80" />
-        </div>
+        <ListSkeleton rows={2} rowHeightClass="h-32" />
+      ) : hasError ? (
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadData()}
+        />
       ) : filteredOrders.length === 0 ? (
         <Card padding="lg" className="text-center space-y-2.5 py-10">
           <div className="w-12 h-12 rounded-full bg-light-green text-fresh-green mx-auto flex items-center justify-center">
@@ -271,7 +284,7 @@ export function DeliveryHomePage() {
                         tone="yellow"
                         icon={<Banknote className="w-3.5 h-3.5" aria-hidden="true" />}
                       >
-                        COD {formatINR(order.total)}
+                        {t('delivery.codBadge', { amount: formatINR(order.total) })}
                       </Badge>
                     ) : (
                       <Badge tone="green">
@@ -285,7 +298,7 @@ export function DeliveryHomePage() {
                   <div className="flex items-center justify-between text-[11px] text-muted-text">
                     <span className="inline-flex items-center gap-1">
                       <Clock className="w-3 h-3" aria-hidden="true" />
-                      {formatDateTime(order.createdAt)}
+                      {formatDateTime(order.createdAt, locale)}
                     </span>
                     <span className="text-fresh-green font-semibold">
                       {lang === 'ta'

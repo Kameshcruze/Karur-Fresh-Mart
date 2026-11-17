@@ -34,7 +34,7 @@ export function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const locationLabel = defaultAddress
-    ? `Karur - ${defaultAddress.pincode}, 45 min`
+    ? t('header.locationPincode', { pincode: defaultAddress.pincode })
     : t('brand.locationDefault');
   const authLabel = isLoggedIn && user ? user.name.split(' ')[0] : t('header.login');
   const [searchParams, setSearchParams] = useSearchParams();

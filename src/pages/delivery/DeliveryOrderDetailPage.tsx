@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DeliveryMapPreview } from '../../components/delivery';
-import { Badge, Button, Card, ProductImage } from '../../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ListSkeleton, ProductImage } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { useI18n } from '../../context/I18nContext';
 import {
@@ -38,14 +38,26 @@ export function DeliveryOrderDetailPage() {
   const [order, setOrder] = useState<Order | undefined>(undefined);
   const [checkedItemIds, setCheckedItemIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
 
+  const locale = lang === 'ta' ? 'ta-IN' : 'en-IN';
+
   const loadOrder = useCallback(async () => {
-    if (!id) return;
-    const found = await getOrderById(id);
-    setOrder(found);
-    setCheckedItemIds(getDeliveryOrderChecklist(id));
-    setLoading(false);
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const found = await getOrderById(id);
+      setOrder(found);
+      setCheckedItemIds(getDeliveryOrderChecklist(id));
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
   useEffect(() => {
@@ -61,11 +73,17 @@ export function DeliveryOrderDetailPage() {
   }, [order]);
 
   if (loading) {
+    return <ListSkeleton rows={2} rowHeightClass="h-36" />;
+  }
+
+  if (hasError) {
     return (
-      <div className="space-y-3">
-        <Card className="h-28 animate-pulse bg-white/80" />
-        <Card className="h-56 animate-pulse bg-white/80" />
-      </div>
+      <ErrorStateCard
+        title={t('a11y.loadErrorTitle')}
+        subtitle={t('a11y.loadErrorSubtitle')}
+        retryLabel={t('a11y.retry')}
+        onRetry={() => void loadOrder()}
+      />
     );
   }
 
@@ -73,7 +91,7 @@ export function DeliveryOrderDetailPage() {
     return (
       <Card padding="lg" className="text-center space-y-4">
         <p className="font-heading font-bold text-lg text-dark-ink">
-          Order #{id} not found
+          {t('delivery.orderNotFound', { id: id ?? '' })}
         </p>
         <Link to="/delivery">
           <Button variant="primary">{t('delivery.backToDeliveries')}</Button>
@@ -124,10 +142,15 @@ export function DeliveryOrderDetailPage() {
   };
 
   const handleReachedCustomer = async () => {
-    if (order.status === 'picked_up') {
-      await markOrderOutForDelivery(order.id);
+    setActionBusy(true);
+    try {
+      if (order.status === 'picked_up') {
+        await markOrderOutForDelivery(order.id);
+      }
+      navigate(`/delivery/orders/${order.id}/confirm`);
+    } finally {
+      setActionBusy(false);
     }
-    navigate(`/delivery/orders/${order.id}/confirm`);
   };
 
   const getStatusBadge = () => {
@@ -192,7 +215,7 @@ export function DeliveryOrderDetailPage() {
               <p className="text-muted-text">{order.address.landmark}</p>
             )}
             <p className="text-muted-text">
-              {order.address.area ? `${order.address.area}, Karur` : 'Karur'} - {order.address.pincode}
+              {order.address.area ? `${order.address.area}, ${t('common.karurCity')}` : t('common.karurCity')} - {order.address.pincode}
             </p>
           </div>
         </div>
@@ -204,7 +227,7 @@ export function DeliveryOrderDetailPage() {
             className="text-xs text-fresh-green font-medium inline-flex items-center gap-1.5"
           >
             <PackageCheck className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>{t('delivery.pickedUpAtLabel', { time: formatDateTime(pickedUpTimestamp) })}</span>
+            <span>{t('delivery.pickedUpAtLabel', { time: formatDateTime(pickedUpTimestamp, locale) })}</span>
           </p>
         )}
         {deliveredTimestamp && (
@@ -213,7 +236,7 @@ export function DeliveryOrderDetailPage() {
             className="text-xs text-dark-ink font-semibold inline-flex items-center gap-1.5"
           >
             <CheckCircle2 className="w-3.5 h-3.5 text-fresh-green" aria-hidden="true" />
-            <span>{t('delivery.deliveredAtLabel', { time: formatDateTime(deliveredTimestamp) })}</span>
+            <span>{t('delivery.deliveredAtLabel', { time: formatDateTime(deliveredTimestamp, locale) })}</span>
           </p>
         )}
       </Card>

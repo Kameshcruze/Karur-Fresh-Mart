@@ -432,3 +432,21 @@ test('Combo disables out-of-stock brands and marks combo unavailable if all bran
 
   resetCatalogToSeed();
 });
+
+test('Stock never drops below zero across updateStock and order deductions', async () => {
+  resetCatalogToSeed();
+  const updated = await updateStock('prod-ponni-rice-10kg', -25, 'manual', {
+    who: 'Unit Test',
+    note: 'Negative clamp test',
+  });
+  assert.equal(updated?.stockQty, 0);
+  assert.equal(updated?.reservedQty, 0);
+
+  const history = await getStockHistory('prod-ponni-rice-10kg');
+  assert.ok(
+    history.some((h) => h.note === 'Negative clamp test' && h.newValue === 0),
+    'Clamped zero update must appear in stock history',
+  );
+
+  resetCatalogToSeed();
+});

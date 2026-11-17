@@ -6,7 +6,7 @@ import {
   RefreshCw,
   ShoppingBasket,
 } from 'lucide-react';
-import { Badge, Button, Card, ProductImage } from '../../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ListSkeleton, ProductImage } from '../../components/ui';
 import { useI18n } from '../../context/I18nContext';
 import {
   getAllUserCarts,
@@ -34,43 +34,50 @@ export function AdminLiveCartsPage() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [sendingForUser, setSendingForUser] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [rawCarts, users, reminders] = await Promise.all([
-      getAllUserCarts(),
-      getRegisteredUsers(),
-      getCartReminders(),
-    ]);
+    try {
+      const [rawCarts, users, reminders] = await Promise.all([
+        getAllUserCarts(),
+        getRegisteredUsers(),
+        getCartReminders(),
+      ]);
 
-    const userMap = new Map<string, User>();
-    for (const u of users) {
-      userMap.set(u.id, u);
+      const userMap = new Map<string, User>();
+      for (const u of users) {
+        userMap.set(u.id, u);
+      }
+
+      const enriched: EnrichedLiveCart[] = rawCarts
+        .map((entry) => {
+          const matched = userMap.get(entry.userId);
+          return {
+            userId: entry.userId,
+            customerName: matched?.name ?? t('admin.guestCustomerLabel', { id: entry.userId }),
+            customerMobile: matched?.mobile ?? '—',
+            cart: entry.cart,
+            summary: entry.summary,
+            lastReminderAt: reminders[entry.userId],
+          };
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.cart.updatedAt).getTime() - new Date(a.cart.updatedAt).getTime(),
+        );
+
+      setCarts(enriched);
+      setSelectedUserId((prev) => {
+        if (prev && enriched.some((c) => c.userId === prev)) return prev;
+        return enriched[0]?.userId ?? null;
+      });
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
     }
-
-    const enriched: EnrichedLiveCart[] = rawCarts
-      .map((entry) => {
-        const matched = userMap.get(entry.userId);
-        return {
-          userId: entry.userId,
-          customerName: matched?.name ?? `Karur Customer (${entry.userId})`,
-          customerMobile: matched?.mobile ?? '—',
-          cart: entry.cart,
-          summary: entry.summary,
-          lastReminderAt: reminders[entry.userId],
-        };
-      })
-      .sort(
-        (a, b) =>
-          new Date(b.cart.updatedAt).getTime() - new Date(a.cart.updatedAt).getTime(),
-      );
-
-    setCarts(enriched);
-    setSelectedUserId((prev) => {
-      if (prev && enriched.some((c) => c.userId === prev)) return prev;
-      return enriched[0]?.userId ?? null;
-    });
-    setIsLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadData();
@@ -151,7 +158,14 @@ export function AdminLiveCartsPage() {
       )}
 
       {isLoading ? (
-        <Card className="h-64 animate-pulse bg-white/80" />
+        <ListSkeleton rows={3} rowHeightClass="h-20" />
+      ) : hasError ? (
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadData()}
+        />
       ) : carts.length === 0 ? (
         <Card className="py-12 text-center space-y-2.5">
           <div className="w-12 h-12 rounded-[12px] bg-light-green text-fresh-green mx-auto flex items-center justify-center">

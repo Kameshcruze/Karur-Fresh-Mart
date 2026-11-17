@@ -10,7 +10,7 @@ import {
   Store,
   Tag,
 } from 'lucide-react';
-import { Badge, Button, Card } from '../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ProductGridSkeleton } from '../components/ui';
 import { useI18n } from '../context/I18nContext';
 import {
   getBrands,
@@ -38,21 +38,28 @@ export function PublicShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const loadShopData = useCallback(async () => {
-    const [offerList, comboList, categoryList, brandList, productList] = await Promise.all([
-      getOffers(true),
-      getCombos(),
-      getCategories(),
-      getBrands(),
-      getProducts(),
-    ]);
-    setOffers(offerList);
-    setCombos(comboList);
-    setCategories(categoryList);
-    setBrands(brandList);
-    setProducts(productList);
-    setLoading(false);
+    setHasError(false);
+    try {
+      const [offerList, comboList, categoryList, brandList, productList] = await Promise.all([
+        getOffers(true),
+        getCombos(),
+        getCategories(),
+        getBrands(),
+        getProducts(),
+      ]);
+      setOffers(offerList);
+      setCombos(comboList);
+      setCategories(categoryList);
+      setBrands(brandList);
+      setProducts(productList);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // Load initial public catalog + subscribe to live price/stock/offer updates
@@ -74,6 +81,12 @@ export function PublicShopPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-soft-grey text-dark-ink">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-[8px] focus:bg-deep-forest focus:text-white focus:text-sm focus:font-semibold focus:shadow-lg"
+      >
+        {t('a11y.skipToContent')}
+      </a>
       {/* Lightweight Public Green Header (QR Wall Poster Landing) */}
       <header className="bg-gradient-to-br from-fresh-green to-bright-green text-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
@@ -138,7 +151,11 @@ export function PublicShopPage() {
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-7">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-7 focus:outline-none"
+      >
         {/* Today's Offers Section */}
         <section aria-labelledby="shop-offers-heading" className="space-y-3">
           <div className="flex items-end justify-between gap-2">
@@ -272,7 +289,9 @@ export function PublicShopPage() {
               </p>
             </div>
             <span className="text-xs font-semibold text-muted-text tabular-nums">
-              {filteredProducts.length} items
+              {filteredProducts.length === 1
+                ? t('common.itemCountSingle')
+                : t('common.itemCountPlural', { count: filteredProducts.length })}
             </span>
           </div>
 
@@ -325,11 +344,20 @@ export function PublicShopPage() {
 
           {/* View-Only Live Product Grid */}
           {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-              {Array.from({ length: 10 }).map((_, idx) => (
-                <Card key={idx} padding="sm" className="h-64 animate-pulse bg-white/80" />
-              ))}
-            </div>
+            <ProductGridSkeleton
+              count={10}
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4"
+            />
+          ) : hasError ? (
+            <ErrorStateCard
+              title={t('a11y.loadErrorTitle')}
+              subtitle={t('a11y.loadErrorSubtitle')}
+              retryLabel={t('a11y.retry')}
+              onRetry={() => {
+                setLoading(true);
+                void loadShopData();
+              }}
+            />
           ) : filteredProducts.length === 0 ? (
             <Card className="text-center py-10 text-sm text-muted-text">
               {t('shop.noProductsInCategory')}

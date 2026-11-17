@@ -441,7 +441,7 @@ export function AddressesPage() {
                       {addr.door}, {addr.street}
                     </p>
                     <p className="text-xs text-muted-text mt-1">
-                      {addr.landmark} · Karur - {addr.pincode}
+                      {addr.landmark} · {t('common.karurCity')} - {addr.pincode}
                     </p>
                   </div>
 

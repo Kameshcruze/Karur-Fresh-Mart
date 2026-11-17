@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Boxes,
@@ -26,6 +26,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [mobileMenuOpen]);
+
   const navItems = [
     { to: '/admin', label: t('admin.dashboard'), icon: LayoutDashboard, end: true },
     { to: '/admin/orders', label: t('admin.orders'), icon: ClipboardList, end: false },
@@ -46,7 +55,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   };
 
   const renderNavLinks = (onItemClick?: () => void) => (
-    <nav aria-label="Admin navigation" className="flex flex-col gap-1 p-3 flex-1 overflow-y-auto">
+    <nav aria-label={t('a11y.adminNavAria')} className="flex flex-col gap-1 p-3 flex-1 overflow-y-auto">
       {navItems.map((item) => {
         const Icon = item.icon;
         return (
@@ -77,7 +86,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       {user && (
         <div className="px-2 pb-1">
           <p className="text-xs font-semibold text-white truncate">{user.name}</p>
-          <p className="text-[11px] text-white/65 tabular-nums">+91 {user.mobile}</p>
+          <p className="text-[11px] text-white/85 tabular-nums">+91 {user.mobile}</p>
         </div>
       )}
       <button
@@ -110,6 +119,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-soft-grey text-dark-ink">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-[8px] focus:bg-fresh-green focus:text-white focus:text-sm focus:font-semibold focus:shadow-lg"
+      >
+        {t('a11y.skipToContent')}
+      </a>
       {/* Desktop Deep Forest (#16281F) Sidebar */}
       <aside
         data-testid="admin-desktop-sidebar"
@@ -119,7 +134,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <p className="font-heading font-bold text-base tracking-tight text-white">
             {t('admin.portalTitle')}
           </p>
-          <p className="text-xs text-white/70 mt-0.5">{t('admin.storeStatus')}</p>
+          <p className="text-xs text-white/85 mt-0.5">{t('admin.storeStatus')}</p>
         </div>
 
         {renderNavLinks()}
@@ -148,7 +163,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <p className="font-heading font-bold text-sm text-white truncate">
               {t('admin.portalTitle')}
             </p>
-            <p className="text-[11px] text-white/70 truncate">{t('admin.storeStatus')}</p>
+            <p className="text-[11px] text-white/85 truncate">{t('admin.storeStatus')}</p>
           </div>
         </div>
 
@@ -190,7 +205,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 <p className="font-heading font-bold text-sm text-white truncate">
                   {t('admin.portalTitle')}
                 </p>
-                <p className="text-[11px] text-white/70 truncate">{t('admin.storeStatus')}</p>
+                <p className="text-[11px] text-white/85 truncate">{t('admin.storeStatus')}</p>
               </div>
               <button
                 type="button"
@@ -208,7 +223,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto print:p-0 print:max-w-none">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto print:p-0 print:max-w-none focus:outline-none"
+        >
           {children}
         </main>
       </div>

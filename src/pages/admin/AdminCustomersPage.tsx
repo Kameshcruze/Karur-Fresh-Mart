@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapPin, Package, Search, Users, X } from 'lucide-react';
-import { Badge, Card } from '../../components/ui';
+import { Badge, Card, ErrorStateCard, ListSkeleton } from '../../components/ui';
 import { useI18n } from '../../context/I18nContext';
 import {
   getAddresses,
@@ -8,34 +8,59 @@ import {
   getOrders,
   getRegisteredUsers,
 } from '../../services';
-import type { Address, CartSummary, Order, User } from '../../types';
+import type { Address, CartSummary, Order, OrderStatus, User } from '../../types';
 import { formatINR } from '../../utils/format';
 
 export function AdminCustomersPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const locale = lang === 'ta' ? 'ta-IN' : 'en-IN';
   const [customers, setCustomers] = useState<User[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [carts, setCarts] = useState<Array<{ userId: string; summary: CartSummary }>>([]);
   const [search, setSearch] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [userList, orderList, cartList, addrList] = await Promise.all([
-      getRegisteredUsers(),
-      getOrders(),
-      getAllUserCarts(),
-      getAddresses(),
-    ]);
-    const onlyCustomers = userList.filter((u) => u.role === 'customer');
-    setCustomers(onlyCustomers);
-    setOrders(orderList);
-    setCarts(cartList);
-    setAddresses(addrList);
-    if (!selectedCustomerId && onlyCustomers.length > 0) {
-      setSelectedCustomerId(onlyCustomers[0].id);
+    try {
+      const [userList, orderList, cartList, addrList] = await Promise.all([
+        getRegisteredUsers(),
+        getOrders(),
+        getAllUserCarts(),
+        getAddresses(),
+      ]);
+      const onlyCustomers = userList.filter((u) => u.role === 'customer');
+      setCustomers(onlyCustomers);
+      setOrders(orderList);
+      setCarts(cartList);
+      setAddresses(addrList);
+      setSelectedCustomerId((prev) => prev ?? onlyCustomers[0]?.id ?? null);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
     }
-  }, [selectedCustomerId]);
+  }, []);
+
+  const orderStatusLabel = (status: OrderStatus): string => {
+    switch (status) {
+      case 'placed':
+        return t('orders.statusPlaced');
+      case 'packed':
+        return t('orders.statusPacked');
+      case 'picked_up':
+        return t('orders.statusPickedUp');
+      case 'out_for_delivery':
+        return t('orders.statusOutForDelivery');
+      case 'delivered':
+        return t('orders.statusDelivered');
+      case 'cancelled':
+        return t('orders.statusCancelled');
+    }
+  };
 
   useEffect(() => {
     void loadData();
@@ -91,6 +116,16 @@ export function AdminCustomersPage() {
         </div>
       </div>
 
+      {loading ? (
+        <ListSkeleton rows={4} rowHeightClass="h-20" />
+      ) : hasError ? (
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadData()}
+        />
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Customer Directory Table */}
         <Card padding="none" className="lg:col-span-7 overflow-hidden">
@@ -231,8 +266,10 @@ export function AdminCustomersPage() {
                             {o.id}
                           </p>
                           <p className="text-muted-text">
-                            {new Date(o.createdAt).toLocaleDateString('en-IN')} · {o.items.length}{' '}
-                            items
+                            {new Date(o.createdAt).toLocaleDateString(locale)} ·{' '}
+                            {o.items.length === 1
+                              ? t('orders.itemsCountSingle')
+                              : t('orders.itemsCountPlural', { count: o.items.length })}
                           </p>
                         </div>
                         <div className="text-right">
@@ -240,7 +277,7 @@ export function AdminCustomersPage() {
                             {formatINR(o.total)}
                           </p>
                           <Badge tone={o.status === 'cancelled' ? 'red' : 'green'}>
-                            {o.status}
+                            {orderStatusLabel(o.status)}
                           </Badge>
                         </div>
                       </div>
@@ -256,6 +293,7 @@ export function AdminCustomersPage() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

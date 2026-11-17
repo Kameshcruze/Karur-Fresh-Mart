@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { NumericOtpKeypad } from '../../components/delivery';
-import { Badge, Button, Card } from '../../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ListSkeleton } from '../../components/ui';
 import { useI18n } from '../../context/I18nContext';
 import {
   computeOrderPayoutInr,
@@ -22,23 +22,34 @@ import { formatDateTime, formatINR } from '../../utils/format';
 export function DeliveryConfirmOtpPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const locale = lang === 'ta' ? 'ta-IN' : 'en-IN';
 
   const [order, setOrder] = useState<Order | undefined>(undefined);
   const [otp, setOtp] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<Order | undefined>(undefined);
 
   const loadOrder = useCallback(async () => {
-    if (!id) return;
-    const found = await getOrderById(id);
-    setOrder(found);
-    if (found?.status === 'delivered') {
-      setCompletedOrder(found);
+    if (!id) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+    try {
+      const found = await getOrderById(id);
+      setOrder(found);
+      if (found?.status === 'delivered') {
+        setCompletedOrder(found);
+      }
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
   useEffect(() => {
@@ -49,11 +60,17 @@ export function DeliveryConfirmOtpPage() {
   }, [loadOrder]);
 
   if (loading) {
+    return <ListSkeleton rows={2} rowHeightClass="h-44" />;
+  }
+
+  if (hasError) {
     return (
-      <div className="space-y-3">
-        <Card className="h-32 animate-pulse bg-white/80" />
-        <Card className="h-64 animate-pulse bg-white/80" />
-      </div>
+      <ErrorStateCard
+        title={t('a11y.loadErrorTitle')}
+        subtitle={t('a11y.loadErrorSubtitle')}
+        retryLabel={t('a11y.retry')}
+        onRetry={() => void loadOrder()}
+      />
     );
   }
 
@@ -61,7 +78,7 @@ export function DeliveryConfirmOtpPage() {
     return (
       <Card padding="lg" className="text-center space-y-4">
         <p className="font-heading font-bold text-lg text-dark-ink">
-          Order #{id} not found
+          {t('delivery.orderNotFound', { id: id ?? '' })}
         </p>
         <Link to="/delivery">
           <Button variant="primary">{t('delivery.backToDeliveries')}</Button>
@@ -91,6 +108,8 @@ export function DeliveryConfirmOtpPage() {
       }
       setCompletedOrder(result.order);
       setOrder(result.order);
+    } catch {
+      setErrorMsg(t('delivery.wrongOtpError'));
     } finally {
       setVerifying(false);
     }
@@ -115,6 +134,7 @@ export function DeliveryConfirmOtpPage() {
                 time: formatDateTime(
                   completedOrder.deliveryAssignment?.deliveredAt ??
                     completedOrder.updatedAt,
+                  locale,
                 ),
               })}
             </p>

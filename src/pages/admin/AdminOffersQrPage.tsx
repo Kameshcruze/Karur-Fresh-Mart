@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Calendar, Megaphone, Plus, Tag, Ticket, Trash2 } from 'lucide-react';
 import { ShopQrPosterCard } from '../../components/qr/ShopQrPosterCard';
-import { Badge, Button, Card } from '../../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ListSkeleton } from '../../components/ui';
 import { useI18n } from '../../context/I18nContext';
 import {
   deleteBanner,
@@ -23,8 +23,8 @@ function formatWindowLabel(
 ): string {
   if (!startDate && !endDate) return t('admin.alwaysActiveWindow');
   return t('admin.validityWindowLabel', {
-    start: startDate || 'Now',
-    end: endDate || 'Ongoing',
+    start: startDate || t('admin.statusActiveChip'),
+    end: endDate || t('admin.alwaysActiveWindow'),
   });
 }
 
@@ -34,6 +34,8 @@ export function AdminOffersQrPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   // Offer creation form
   const [offerTitle, setOfferTitle] = useState('');
@@ -65,14 +67,21 @@ export function AdminOffersQrPage() {
   const [bannerEndDate, setBannerEndDate] = useState('2026-12-31');
 
   const loadData = useCallback(async () => {
-    const [offerList, couponList, bannerList] = await Promise.all([
-      getOffers(false),
-      getCoupons(false),
-      getBanners(false),
-    ]);
-    setOffers(offerList);
-    setCoupons(couponList);
-    setBanners(bannerList);
+    try {
+      const [offerList, couponList, bannerList] = await Promise.all([
+        getOffers(false),
+        getCoupons(false),
+        getBanners(false),
+      ]);
+      setOffers(offerList);
+      setCoupons(couponList);
+      setBanners(bannerList);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -215,6 +224,17 @@ export function AdminOffersQrPage() {
           </button>
         </div>
 
+        {loading ? (
+          <ListSkeleton rows={3} rowHeightClass="h-24" />
+        ) : hasError ? (
+          <ErrorStateCard
+            title={t('a11y.loadErrorTitle')}
+            subtitle={t('a11y.loadErrorSubtitle')}
+            retryLabel={t('a11y.retry')}
+            onRetry={() => void loadData()}
+          />
+        ) : (
+          <>
         {/* DISCOUNTS (OFFERS) TAB */}
         {subTab === 'offers' && (
           <div className="space-y-4">
@@ -381,7 +401,7 @@ export function AdminOffersQrPage() {
                       size="sm"
                       onClick={() => void saveOffer({ ...offer, active: !offer.active }).then(loadData)}
                     >
-                      {offer.active ? 'Active' : 'Paused'}
+                      {offer.active ? t('admin.statusActiveChip') : t('admin.statusPausedChip')}
                     </Button>
                     <Button
                       type="button"
@@ -550,7 +570,7 @@ export function AdminOffersQrPage() {
                     </div>
                     <p className="text-xs text-muted-text mt-1">{bi(c.description)}</p>
                     <p className="text-[11px] text-muted-text mt-1 tabular-nums">
-                      Min order ₹{c.minOrderAmount} · {formatWindowLabel(c.startDate, c.endDate, t)}
+                      {t('admin.offerMinOrderChip')} ₹{c.minOrderAmount} · {formatWindowLabel(c.startDate, c.endDate, t)}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -560,7 +580,7 @@ export function AdminOffersQrPage() {
                       size="sm"
                       onClick={() => void saveCoupon({ ...c, active: !c.active }).then(loadData)}
                     >
-                      {c.active ? 'Active' : 'Paused'}
+                      {c.active ? t('admin.statusActiveChip') : t('admin.statusPausedChip')}
                     </Button>
                     <Button
                       type="button"
@@ -654,9 +674,9 @@ export function AdminOffersQrPage() {
                     }
                     className="w-full min-h-[40px] px-3 rounded-[8px] border border-border-grey bg-white text-sm font-semibold"
                   >
-                    <option value="green">Green</option>
-                    <option value="yellow">Yellow</option>
-                    <option value="forest">Forest</option>
+                    <option value="green">{t('admin.toneGreen')}</option>
+                    <option value="yellow">{t('admin.toneYellow')}</option>
+                    <option value="forest">{t('admin.toneDark')}</option>
                   </select>
                 </div>
 
@@ -712,12 +732,16 @@ export function AdminOffersQrPage() {
                           b.tone === 'yellow' ? 'yellow' : b.tone === 'forest' ? 'dark' : 'green'
                         }
                       >
-                        {b.tone}
+                        {b.tone === 'yellow'
+                          ? t('admin.toneYellow')
+                          : b.tone === 'forest'
+                            ? t('admin.toneDark')
+                            : t('admin.toneGreen')}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-text mt-1">{bi(b.subtitle)}</p>
                     <p className="text-[11px] text-muted-text mt-1 tabular-nums">
-                      CTA: {bi(b.ctaLabel)} ({b.ctaRoute}) · {formatWindowLabel(b.startDate, b.endDate, t)}
+                      {t('admin.ctaPrefix')} {bi(b.ctaLabel)} ({b.ctaRoute}) · {formatWindowLabel(b.startDate, b.endDate, t)}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -727,7 +751,7 @@ export function AdminOffersQrPage() {
                       size="sm"
                       onClick={() => void saveBanner({ ...b, active: !b.active }).then(loadData)}
                     >
-                      {b.active ? 'Active' : 'Paused'}
+                      {b.active ? t('admin.statusActiveChip') : t('admin.statusPausedChip')}
                     </Button>
                     <Button
                       type="button"
@@ -744,6 +768,8 @@ export function AdminOffersQrPage() {
               ))}
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
 

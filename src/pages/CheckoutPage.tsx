@@ -127,7 +127,7 @@ export function CheckoutPage() {
       setPendingPaymentOrder(null);
       setPlacedOrder(created);
     } catch (err) {
-      setCheckoutError(err instanceof Error ? err.message : 'Unable to place order.');
+      setCheckoutError(err instanceof Error ? err.message : t('checkout.placeOrderErrorFallback'));
     } finally {
       setIsPlacing(false);
     }
@@ -156,7 +156,7 @@ export function CheckoutPage() {
       });
       setPendingPaymentOrder(paymentOrder);
     } catch (err) {
-      setCheckoutError(err instanceof Error ? err.message : 'Unable to initiate payment.');
+      setCheckoutError(err instanceof Error ? err.message : t('checkout.initiatePaymentErrorFallback'));
     } finally {
       setIsPlacing(false);
     }

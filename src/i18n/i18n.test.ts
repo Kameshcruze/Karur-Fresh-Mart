@@ -29,3 +29,24 @@ test('translate resolves keys and interpolates parameters in EN and TA', () => {
   assert.equal(translate('en', 'common.offPercent', { percent: 15 }), '15% OFF');
   assert.equal(translate('ta', 'common.offPercent', { percent: 15 }), '15% தள்ளுபடி');
 });
+
+function getLeafValue(obj: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce<unknown>((acc, key) => {
+    if (acc && typeof acc === 'object') {
+      return (acc as Record<string, unknown>)[key];
+    }
+    return undefined;
+  }, obj);
+}
+
+test('Every EN and TA translation leaf is a non-empty string', () => {
+  const keys = collectKeys(en as unknown as Record<string, unknown>);
+  for (const key of keys) {
+    const enVal = getLeafValue(en as unknown as Record<string, unknown>, key);
+    const taVal = getLeafValue(ta as unknown as Record<string, unknown>, key);
+    assert.equal(typeof enVal, 'string', `Expected EN string at ${key}`);
+    assert.ok((enVal as string).trim().length > 0, `Empty EN string at ${key}`);
+    assert.equal(typeof taVal, 'string', `Expected TA string at ${key}`);
+    assert.ok((taVal as string).trim().length > 0, `Empty TA string at ${key}`);
+  }
+});

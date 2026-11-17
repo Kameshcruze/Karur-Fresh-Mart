@@ -10,11 +10,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-soft-grey text-dark-ink print:bg-white">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-[8px] focus:bg-deep-forest focus:text-white focus:text-sm focus:font-semibold focus:shadow-lg"
+      >
+        {t('a11y.skipToContent')}
+      </a>
       <div className="print:hidden">
         <Header />
       </div>
 
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-8 pb-32 md:pb-12 print:max-w-none print:p-0">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-8 pb-32 md:pb-12 print:max-w-none print:p-0 focus:outline-none"
+      >
         {children}
       </main>
 

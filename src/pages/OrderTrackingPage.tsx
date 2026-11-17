@@ -19,7 +19,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { OrderStatusBadge } from '../components/orders/OrderStatusBadge';
-import { Badge, Button, Card } from '../components/ui';
+import { Badge, Button, Card, ErrorStateCard } from '../components/ui';
 import { useCart } from '../context/CartContext';
 import { useI18n } from '../context/I18nContext';
 import {
@@ -89,6 +89,7 @@ export function OrderTrackingPage() {
   const { refresh: refreshCart } = useCart();
 
   const [order, setOrder] = useState<Order | null | undefined>(undefined);
+  const [hasError, setHasError] = useState(false);
   const [reordering, setReordering] = useState(false);
 
   const loadOrder = useCallback(async () => {
@@ -96,8 +97,13 @@ export function OrderTrackingPage() {
       setOrder(null);
       return;
     }
-    const found = await getOrderById(id);
-    setOrder(found ?? null);
+    setHasError(false);
+    try {
+      const found = await getOrderById(id);
+      setOrder(found ?? null);
+    } catch {
+      setHasError(true);
+    }
   }, [id]);
 
   // Initial load + automatic refresh on service events and lightweight polling fallback
@@ -127,6 +133,20 @@ export function OrderTrackingPage() {
       setReordering(false);
     }
   };
+
+  if (hasError) {
+    return (
+      <div className="space-y-4">
+        <h1 className="sr-only">{t('orders.trackingTitle')}</h1>
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadOrder()}
+        />
+      </div>
+    );
+  }
 
   if (order === undefined) {
     return (
@@ -290,7 +310,7 @@ export function OrderTrackingPage() {
               </div>
               {!isCancelled && !isDelivered && (
                 <Badge tone="green">
-                  ~{order.estimatedMinutes} min
+                  {t('orders.etaMinutes', { minutes: order.estimatedMinutes })}
                 </Badge>
               )}
             </div>
@@ -406,7 +426,8 @@ export function OrderTrackingPage() {
                             {bi(item.name)}
                           </p>
                           <p className="text-xs text-muted-text tabular-nums">
-                            {item.packOrSummary} · Qty {item.quantity} × {formatINR(item.unitPrice)}
+                            {item.packOrSummary} · {t('orders.qtyShort', { qty: item.quantity })} ×{' '}
+                            {formatINR(item.unitPrice)}
                           </p>
                         </div>
                       </div>
@@ -533,7 +554,7 @@ export function OrderTrackingPage() {
                   {t('orders.liveMapTitle')}
                 </h2>
               </div>
-              <Badge tone="neutral">Karur GPS</Badge>
+              <Badge tone="neutral">{t('orders.karurGpsBadge')}</Badge>
             </div>
 
             <div className="relative h-[200px] rounded-[12px] overflow-hidden border border-border-grey bg-[#EBF2EE] flex flex-col items-center justify-center p-4 text-center">

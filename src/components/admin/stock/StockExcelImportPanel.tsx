@@ -66,7 +66,7 @@ export function StockExcelImportPanel({
       const workbook = XLSX.read(buffer, { type: 'array' });
       const firstSheet = workbook.SheetNames[0];
       if (!firstSheet) {
-        setParseError('No worksheet found in the uploaded file.');
+        setParseError(t('admin.importParseEmptyError'));
         return;
       }
       const ws = workbook.Sheets[firstSheet];
@@ -74,7 +74,7 @@ export function StockExcelImportPanel({
         defval: '',
       });
       if (rawRows.length === 0) {
-        setParseError('The uploaded file has no data rows.');
+        setParseError(t('admin.importParseEmptyError'));
         return;
       }
 
@@ -82,9 +82,7 @@ export function StockExcelImportPanel({
       setPreviewRows(parsed);
       setFileName(file.name);
     } catch {
-      setParseError(
-        'Could not parse file. Please upload a valid .xlsx, .xls, or .csv sheet.',
-      );
+      setParseError(t('admin.importParseGenericError'));
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -172,6 +170,17 @@ export function StockExcelImportPanel({
       await onImportComplete(result);
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const modeLabel = (mode: StockImportMode) => {
+    switch (mode) {
+      case 'update_stock_only':
+        return t('admin.modeUpdateStockOnly');
+      case 'replace_all_stock':
+        return t('admin.modeReplaceAll');
+      default:
+        return t('admin.modeAddUpdate');
     }
   };
 
@@ -290,7 +299,7 @@ export function StockExcelImportPanel({
                   {t('admin.importResultTitle')} — {importResult.fileName}
                 </h3>
                 <p className="text-xs text-muted-text">
-                  {importResult.adminName} · {importResult.mode}
+                  {importResult.adminName} · {modeLabel(importResult.mode)}
                 </p>
               </div>
             </div>
@@ -532,7 +541,7 @@ export function StockExcelImportPanel({
                             <input
                               type="text"
                               value={row.item_code}
-                              aria-label={`Row ${row.rowNumber} item code`}
+                              aria-label={t('admin.importRowItemCodeAria', { row: row.rowNumber })}
                               onChange={(e) =>
                                 handleInlinePreviewFieldChange(row.rowNumber, {
                                   item_code: e.target.value,
@@ -551,13 +560,13 @@ export function StockExcelImportPanel({
                             <input
                               type="text"
                               value={row.product_name}
-                              aria-label={`Row ${row.rowNumber} product name`}
+                              aria-label={t('admin.importRowProductNameAria', { row: row.rowNumber })}
                               onChange={(e) =>
                                 handleInlinePreviewFieldChange(row.rowNumber, {
                                   product_name: e.target.value,
                                 })
                               }
-                              placeholder="Product name required"
+                              placeholder={t('admin.importNamePlaceholder')}
                               className="w-full min-h-[34px] px-2 rounded border border-border-grey bg-white text-xs font-semibold"
                             />
                           ) : (
@@ -580,7 +589,7 @@ export function StockExcelImportPanel({
                           {isError ? (
                             <select
                               value={row.category}
-                              aria-label={`Row ${row.rowNumber} category`}
+                              aria-label={t('admin.importRowCategoryAria', { row: row.rowNumber })}
                               onChange={(e) =>
                                 handleInlinePreviewFieldChange(row.rowNumber, {
                                   category: e.target.value,
@@ -588,7 +597,9 @@ export function StockExcelImportPanel({
                               }
                               className="w-full min-h-[34px] px-2 rounded border border-border-grey bg-white text-xs"
                             >
-                              <option value={row.category}>{row.category || 'Select category'}</option>
+                              <option value={row.category}>
+                                {row.category || t('admin.importSelectCategory')}
+                              </option>
                               {categories.map((c) => (
                                 <option key={c.id} value={c.name.en}>
                                   {c.name.en}
@@ -604,7 +615,7 @@ export function StockExcelImportPanel({
                             <input
                               type="number"
                               value={Number.isFinite(row.mrp) ? row.mrp : ''}
-                              aria-label={`Row ${row.rowNumber} MRP`}
+                              aria-label={t('admin.importRowMrpAria', { row: row.rowNumber })}
                               onChange={(e) =>
                                 handleInlinePreviewFieldChange(row.rowNumber, {
                                   mrp: Number(e.target.value),
@@ -621,7 +632,7 @@ export function StockExcelImportPanel({
                             <input
                               type="number"
                               value={Number.isFinite(row.selling_price) ? row.selling_price : ''}
-                              aria-label={`Row ${row.rowNumber} selling price`}
+                              aria-label={t('admin.importRowPriceAria', { row: row.rowNumber })}
                               onChange={(e) =>
                                 handleInlinePreviewFieldChange(row.rowNumber, {
                                   selling_price: Number(e.target.value),
@@ -638,7 +649,7 @@ export function StockExcelImportPanel({
                             <input
                               type="number"
                               value={Number.isFinite(row.stock_qty) ? row.stock_qty : ''}
-                              aria-label={`Row ${row.rowNumber} stock qty`}
+                              aria-label={t('admin.importRowStockAria', { row: row.rowNumber })}
                               onChange={(e) =>
                                 handleInlinePreviewFieldChange(row.rowNumber, {
                                   stock_qty: Number(e.target.value),
@@ -659,7 +670,7 @@ export function StockExcelImportPanel({
                           <input
                             type="checkbox"
                             checked={row.skip}
-                            aria-label={`Skip row ${row.rowNumber}`}
+                            aria-label={t('admin.importRowSkipAria', { row: row.rowNumber })}
                             onChange={(e) =>
                               handleToggleSkip(row.rowNumber, e.target.checked)
                             }

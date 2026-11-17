@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Badge, Button, Card } from '../../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ListSkeleton } from '../../components/ui';
 import { useI18n } from '../../context/I18nContext';
 import type { DeliveryPartnerProfile } from '../../mock/users';
 import {
@@ -22,7 +22,7 @@ import {
   subscribeToOrderUpdates,
   updateOrderStatus,
 } from '../../services';
-import type { DeliverySlotId, Order, OrderStatus } from '../../types';
+import type { DeliverySlotId, Order, OrderStatus, PaymentStatus } from '../../types';
 import { formatINR } from '../../utils/format';
 import { buildGoogleMapsNavUrl } from '../../utils/geo';
 
@@ -55,15 +55,22 @@ export function AdminOrdersPage() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [ordersList, partnersList] = await Promise.all([
-      getOrders(),
-      getDeliveryPartners(),
-    ]);
-    setOrders(ordersList);
-    setPartners(partnersList);
-    setIsLoading(false);
+    try {
+      const [ordersList, partnersList] = await Promise.all([
+        getOrders(),
+        getDeliveryPartners(),
+      ]);
+      setOrders(ordersList);
+      setPartners(partnersList);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -71,6 +78,21 @@ export function AdminOrdersPage() {
     const unsub = subscribeToOrderUpdates(() => void loadData());
     return unsub;
   }, [loadData]);
+
+  useEffect(() => {
+    if (!packingSlipOrder && !selectedOrderId) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (packingSlipOrder) {
+          setPackingSlipOrder(null);
+        } else {
+          setSelectedOrderId(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [packingSlipOrder, selectedOrderId]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -105,6 +127,19 @@ export function AdminOrdersPage() {
       case '45min':
       default:
         return t('cart.slot45Min');
+    }
+  };
+
+  const paymentStatusLabel = (status: PaymentStatus): string => {
+    switch (status) {
+      case 'paid':
+        return t('common.paymentStatusPaid');
+      case 'refunded':
+        return t('common.paymentStatusRefunded');
+      case 'failed':
+        return t('common.paymentStatusFailed');
+      default:
+        return t('common.paymentStatusPending');
     }
   };
 
@@ -186,7 +221,7 @@ export function AdminOrdersPage() {
         {/* Status Filter Tabs */}
         <div
           role="tablist"
-          aria-label="Order status filters"
+          aria-label={t('admin.orderStatusFiltersAria')}
           className="flex flex-wrap gap-2"
         >
           {filterTabs.map((tab) => {
@@ -225,7 +260,14 @@ export function AdminOrdersPage() {
 
         {/* Orders List / Table */}
         {isLoading ? (
-          <Card className="h-64 animate-pulse bg-white/80" />
+          <ListSkeleton rows={4} rowHeightClass="h-16" />
+        ) : hasError ? (
+          <ErrorStateCard
+            title={t('a11y.loadErrorTitle')}
+            subtitle={t('a11y.loadErrorSubtitle')}
+            retryLabel={t('a11y.retry')}
+            onRetry={() => void loadData()}
+          />
         ) : filteredOrders.length === 0 ? (
           <Card className="py-12 text-center space-y-2">
             <ClipboardList className="w-8 h-8 text-muted-text mx-auto" aria-hidden="true" />
@@ -286,7 +328,7 @@ export function AdminOrdersPage() {
                           </span>
                           <p
                             className={[
-                              'text-[11px] font-semibold capitalize',
+                              'text-[11px] font-semibold',
                               order.payment.status === 'paid'
                                 ? 'text-fresh-green'
                                 : order.payment.status === 'refunded'
@@ -294,7 +336,7 @@ export function AdminOrdersPage() {
                                   : 'text-muted-text',
                             ].join(' ')}
                           >
-                            {order.payment.status}
+                            {paymentStatusLabel(order.payment.status)}
                           </p>
                         </td>
                         <td className="py-3.5 px-4 text-xs">
@@ -557,7 +599,7 @@ export function AdminOrdersPage() {
                             : 'text-dark-ink'
                       }
                     >
-                      {selectedOrder.payment.status}
+                      {paymentStatusLabel(selectedOrder.payment.status)}
                     </span>
                   </span>
                 </div>
@@ -625,7 +667,7 @@ export function AdminOrdersPage() {
 
               {selectedOrder.status === 'cancelled' ? (
                 <p className="text-center text-xs font-semibold text-alert-red py-1">
-                  {t('admin.alreadyCancelledNote')} · {selectedOrder.payment.status.toUpperCase()}
+                  {t('admin.alreadyCancelledNote')} · {paymentStatusLabel(selectedOrder.payment.status)}
                 </p>
               ) : confirmCancelId === selectedOrder.id ? (
                 <div className="flex items-center gap-2 bg-alert-red-soft p-2 rounded-[10px]">
@@ -672,6 +714,7 @@ export function AdminOrdersPage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-dark-ink/60 p-4 print:static print:bg-white print:p-0"
           role="dialog"
           aria-modal="true"
+          aria-label={t('admin.packingSlipTitle')}
         >
           <Card
             padding="lg"
@@ -726,7 +769,7 @@ export function AdminOrdersPage() {
             <table className="w-full text-left border-collapse text-xs sm:text-sm">
               <thead>
                 <tr className="border-b-2 border-border-grey text-muted-text">
-                  <th className="py-2 pr-2 w-10">Pack</th>
+                  <th className="py-2 pr-2 w-10">{t('admin.colPackCheck')}</th>
                   <th className="py-2 pr-3">{t('invoice.colItem')}</th>
                   <th className="py-2 text-right">{t('invoice.colQty')}</th>
                 </tr>

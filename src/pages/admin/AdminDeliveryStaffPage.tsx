@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Truck, UserPlus } from 'lucide-react';
-import { Badge, Button, Card } from '../../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ListSkeleton } from '../../components/ui';
 import { useI18n } from '../../context/I18nContext';
 import type { DeliveryPartnerProfile } from '../../mock/users';
 import {
@@ -17,6 +17,8 @@ export function AdminDeliveryStaffPage() {
   const { t } = useI18n();
   const [partners, setPartners] = useState<DeliveryPartnerProfile[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   // Add partner form state
   const [name, setName] = useState('');
@@ -27,9 +29,16 @@ export function AdminDeliveryStaffPage() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
-    const [list, allOrders] = await Promise.all([getDeliveryPartners(), getOrders()]);
-    setPartners(list);
-    setOrders(allOrders);
+    try {
+      const [list, allOrders] = await Promise.all([getDeliveryPartners(), getOrders()]);
+      setPartners(list);
+      setOrders(allOrders);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -64,7 +73,7 @@ export function AdminDeliveryStaffPage() {
         setToastMsg((prev) => (prev === msg ? null : prev));
       }, 3500);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Unable to add partner.');
+      setFormError(err instanceof Error ? err.message : t('admin.addPartnerErrorFallback'));
     }
   };
 
@@ -168,6 +177,16 @@ export function AdminDeliveryStaffPage() {
       </Card>
 
       {/* Partners List with Status & Live Stats */}
+      {loading ? (
+        <ListSkeleton rows={3} rowHeightClass="h-28" />
+      ) : hasError ? (
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadData()}
+        />
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {partners.map((partner) => {
           const stats = computeDeliveryPartnerStats(partner.id, orders);
@@ -198,7 +217,7 @@ export function AdminDeliveryStaffPage() {
               {/* Stats strip */}
               <div className="grid grid-cols-3 gap-2 rounded-[10px] bg-soft-grey p-2.5 text-center">
                 <div>
-                  <p className="text-[11px] text-muted-text">Active</p>
+                  <p className="text-[11px] text-muted-text">{t('admin.activeLabel')}</p>
                   <p className="font-heading font-bold text-sm text-dark-ink tabular-nums">
                     {stats.activeDrops}
                   </p>
@@ -236,6 +255,7 @@ export function AdminDeliveryStaffPage() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

@@ -28,8 +28,12 @@ export function DeliveryShell({ children }: { children: React.ReactNode }) {
   const [isToggling, setIsToggling] = useState(false);
 
   const loadPartner = useCallback(async () => {
-    const partners = await getDeliveryPartners();
-    setPartner(resolvePartnerForUser(user?.id, user?.mobile, partners));
+    try {
+      const partners = await getDeliveryPartners();
+      setPartner(resolvePartnerForUser(user?.id, user?.mobile, partners));
+    } catch {
+      // Retain previous partner state if fetch fails
+    }
   }, [user?.id, user?.mobile]);
 
   useEffect(() => {
@@ -61,6 +65,12 @@ export function DeliveryShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-soft-grey text-dark-ink">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-[8px] focus:bg-fresh-green focus:text-white focus:text-sm focus:font-semibold focus:shadow-lg"
+      >
+        {t('a11y.skipToContent')}
+      </a>
       {/* Deep Forest (#16281F) phone-first header with interactive On duty chip */}
       <header className="sticky top-0 z-30 bg-deep-forest text-white border-b border-white/10 shadow-xs">
         <div className="max-w-lg mx-auto px-3.5 h-16 flex items-center justify-between gap-2">
@@ -76,7 +86,7 @@ export function DeliveryShell({ children }: { children: React.ReactNode }) {
               <p className="font-heading font-bold text-sm sm:text-base leading-tight truncate">
                 {partner?.name ?? user?.name ?? t('delivery.portalTitle')}
               </p>
-              <p className="text-[11px] text-white/70 truncate">
+              <p className="text-[11px] text-white/85 truncate">
                 {partner?.vehicleNumber ? `${partner.vehicleNumber} · ` : ''}
                 {t('delivery.portalTitle')}
               </p>
@@ -95,7 +105,7 @@ export function DeliveryShell({ children }: { children: React.ReactNode }) {
                 'inline-flex items-center gap-1.5 min-h-[36px] px-2.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap',
                 isOnDuty
                   ? 'bg-bright-green/20 text-bright-green border-bright-green/40 hover:bg-bright-green/30'
-                  : 'bg-white/10 text-white/80 border-white/20 hover:bg-white/15',
+                  : 'bg-white/10 text-white/90 border-white/25 hover:bg-white/15',
               ].join(' ')}
             >
               {isOnDuty ? (
@@ -119,12 +129,16 @@ export function DeliveryShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-lg mx-auto px-3.5 py-4 pb-24">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 w-full max-w-lg mx-auto px-3.5 py-4 pb-24 focus:outline-none"
+      >
         {children}
       </main>
 
       <nav
-        aria-label="Delivery partner navigation"
+        aria-label={t('a11y.deliveryNavAria')}
         className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border-grey pb-safe shadow-lg"
       >
         <div className="max-w-lg mx-auto grid grid-cols-4 h-[62px]">

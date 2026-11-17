@@ -150,10 +150,12 @@ export function DeliveryRouteGuard({ children }: { children: React.ReactNode }) 
         otp,
       });
       if (verified.role !== 'delivery') {
+        const verifiedRoleLabel =
+          verified.role === 'admin' ? t('common.roleAdmin') : t('common.roleCustomer');
         setErrorMsg(
           t('delivery.nonDeliveryNotice', {
             name: verified.name,
-            role: verified.role,
+            role: verifiedRoleLabel,
           }),
         );
         return;
@@ -181,6 +183,12 @@ export function DeliveryRouteGuard({ children }: { children: React.ReactNode }) 
       data-testid="delivery-login-screen"
       className="min-h-screen bg-soft-grey flex flex-col"
     >
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-[8px] focus:bg-fresh-green focus:text-white focus:text-sm focus:font-semibold focus:shadow-lg"
+      >
+        {t('a11y.skipToContent')}
+      </a>
       {/* Phone-first Deep Forest header */}
       <header className="bg-deep-forest text-white border-b border-white/10">
         <div className="max-w-lg mx-auto px-4 h-16 flex items-center justify-between gap-3">
@@ -196,17 +204,21 @@ export function DeliveryRouteGuard({ children }: { children: React.ReactNode }) 
               <p className="font-heading font-bold text-base leading-tight">
                 {t('brand.shortName')} · {t('delivery.portalTitle')}
               </p>
-              <p className="text-xs text-white/75">{t('brand.tagline')}</p>
+              <p className="text-xs text-white/85">{t('brand.tagline')}</p>
             </div>
           </div>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bright-green/20 text-bright-green text-xs font-semibold">
             <Truck className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Rider</span>
+            <span>{t('delivery.riderBadge')}</span>
           </span>
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-lg mx-auto px-4 py-6 flex flex-col justify-center space-y-4">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 w-full max-w-lg mx-auto px-4 py-6 flex flex-col justify-center space-y-4 focus:outline-none"
+      >
         {/* Demo OTP Toast Banner */}
         {demoToastOtp && step === 'otp' && (
           <div
@@ -237,9 +249,9 @@ export function DeliveryRouteGuard({ children }: { children: React.ReactNode }) 
               </button>
               <button
                 type="button"
-                aria-label="Close"
+                aria-label={t('admin.closePanel')}
                 onClick={() => setDemoToastOtp(null)}
-                className="min-w-[32px] min-h-[32px] rounded-[8px] text-white/70 hover:text-white inline-flex items-center justify-center cursor-pointer"
+                className="min-w-[32px] min-h-[32px] rounded-[8px] text-white/85 hover:text-white inline-flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -351,7 +363,7 @@ export function DeliveryRouteGuard({ children }: { children: React.ReactNode }) 
                       type="text"
                       inputMode="numeric"
                       maxLength={4}
-                      aria-label={`Rider OTP digit ${index + 1}`}
+                      aria-label={t('auth.otpDigitAria', { index: index + 1 })}
                       value={digit}
                       onChange={(e) => handleOtpDigitChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
@@ -405,7 +417,7 @@ export function DeliveryRouteGuard({ children }: { children: React.ReactNode }) 
             </Button>
             <p className="text-[11px] text-muted-text text-center flex items-center justify-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5 text-fresh-green shrink-0" />
-              <span>Demo OTP integration seam ready for WhatsApp/SMS gateway</span>
+              <span>{t('auth.providerSeamNote')}</span>
             </p>
           </div>
         </Card>

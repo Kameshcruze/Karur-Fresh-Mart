@@ -12,7 +12,7 @@ import {
   Search,
   Zap,
 } from 'lucide-react';
-import { Badge, Button, Card, ProductImage } from '../../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ListSkeleton, ProductImage } from '../../components/ui';
 import {
   StockExcelImportPanel,
   StockHistoryModal,
@@ -54,7 +54,8 @@ type StockFilterStatus = 'all' | 'low_stock' | 'out_of_stock' | 'hidden_online';
 const PAGE_SIZE = 15;
 
 export function AdminStockPage() {
-  const { t, bi } = useI18n();
+  const { t, bi, lang } = useI18n();
+  const locale = lang === 'ta' ? 'ta-IN' : 'en-IN';
   const { user } = useAuth();
   const adminName = user?.name ?? 'Senthilnathan K (Store Admin)';
 
@@ -63,6 +64,8 @@ export function AdminStockPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [history, setHistory] = useState<StockHistoryEntry[]>([]);
   const [importLogs, setImportLogs] = useState<StockImportLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const [activeTab, setActiveTab] = useState<StockTab>('table');
   const [search, setSearch] = useState('');
@@ -96,18 +99,25 @@ export function AdminStockPage() {
   } | null>(null);
 
   const loadData = useCallback(async () => {
-    const [p, b, c, h, logs] = await Promise.all([
-      getProducts({ includeHidden: true }),
-      getBrands(),
-      getCategories(),
-      getStockHistory(),
-      getImportLogs(),
-    ]);
-    setProducts(p);
-    setBrands(b);
-    setCategories(c);
-    setHistory(h);
-    setImportLogs(logs);
+    try {
+      const [p, b, c, h, logs] = await Promise.all([
+        getProducts({ includeHidden: true }),
+        getBrands(),
+        getCategories(),
+        getStockHistory(),
+        getImportLogs(),
+      ]);
+      setProducts(p);
+      setBrands(b);
+      setCategories(c);
+      setHistory(h);
+      setImportLogs(logs);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -470,6 +480,17 @@ export function AdminStockPage() {
         )}
       </div>
 
+      {loading ? (
+        <ListSkeleton rows={4} rowHeightClass="h-20" />
+      ) : hasError ? (
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadData()}
+        />
+      ) : (
+        <>
       {/* Excel / CSV Upload Tab */}
       {activeTab === 'excel' && (
         <StockExcelImportPanel
@@ -538,7 +559,7 @@ export function AdminStockPage() {
                             {bi(prod.name)} ({prod.packSize})
                           </span>
                           <span className="text-muted-text tabular-nums shrink-0">
-                            {getTotalAvailableQty(prod)} units
+                            {getTotalAvailableQty(prod)} {t('common.unitsLabel')}
                           </span>
                         </button>
                       ))}
@@ -613,7 +634,7 @@ export function AdminStockPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t('admin.productsSearchPlaceholder')}
-                  aria-label={t('admin.productsSearchPlaceholder')}
+                  aria-label={t('admin.stockSearchAria')}
                   className="w-full min-h-[44px] pl-10 pr-3 rounded-[10px] bg-soft-grey border border-border-grey text-sm focus:bg-white focus:outline-none focus:border-fresh-green"
                 />
               </div>
@@ -743,7 +764,7 @@ export function AdminStockPage() {
                               min={0}
                               autoFocus
                               value={inlineEdit.value}
-                              aria-label={`Inline stock for ${prod.name.en}`}
+                              aria-label={t('admin.inlineEditStockAria', { name: bi(prod.name) })}
                               data-testid={`inline-stock-input-${prod.id}`}
                               onChange={(e) =>
                                 setInlineEdit({ ...inlineEdit, value: e.target.value })
@@ -791,7 +812,7 @@ export function AdminStockPage() {
                               min={1}
                               autoFocus
                               value={inlineEdit.value}
-                              aria-label={`Inline price for ${prod.name.en}`}
+                              aria-label={t('admin.inlineEditPriceAria', { name: bi(prod.name) })}
                               data-testid={`inline-price-input-${prod.id}`}
                               onChange={(e) =>
                                 setInlineEdit({ ...inlineEdit, value: e.target.value })
@@ -829,6 +850,7 @@ export function AdminStockPage() {
                         <td className="py-2 px-2 whitespace-nowrap">
                           <button
                             type="button"
+                            aria-label={t('admin.visibilityToggleAria', { name: bi(prod.name) })}
                             onClick={() => void handleToggleVisibility(prod)}
                             className="inline-flex items-center gap-1 min-h-[34px] px-1 rounded-[8px] hover:bg-soft-grey cursor-pointer"
                           >
@@ -840,13 +862,13 @@ export function AdminStockPage() {
                             ) : (
                               <>
                                 <EyeOff className="w-3.5 h-3.5 text-muted-text" aria-hidden="true" />
-                                <Badge tone="dark">Hidden</Badge>
+                                <Badge tone="dark">{t('admin.hiddenBadge')}</Badge>
                               </>
                             )}
                           </button>
                         </td>
                         <td className="py-2 px-2 text-[11px] text-muted-text tabular-nums whitespace-nowrap">
-                          {prod.updatedAt ? formatDateTime(prod.updatedAt) : '—'}
+                          {prod.updatedAt ? formatDateTime(prod.updatedAt, locale) : '—'}
                         </td>
                         <td className="py-2 px-2 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1">
@@ -880,7 +902,7 @@ export function AdminStockPage() {
                   {paginatedProducts.length === 0 && (
                     <tr>
                       <td colSpan={11} className="py-10 text-center text-sm text-muted-text">
-                        No products match the active filters.
+                        {t('admin.noProductsMatchFilter')}
                       </td>
                     </tr>
                   )}
@@ -942,13 +964,14 @@ export function AdminStockPage() {
                   <div className="flex items-center justify-between gap-2 pt-1">
                     <button
                       type="button"
+                      aria-label={t('admin.visibilityToggleAria', { name: bi(prod.name) })}
                       onClick={() => void handleToggleVisibility(prod)}
                       className="text-xs font-semibold text-dark-ink inline-flex items-center gap-1 min-h-[38px]"
                     >
                       {prod.visibleOnline ? (
                         <Badge tone="green">{t('common.inStock')}</Badge>
                       ) : (
-                        <Badge tone="dark">Hidden</Badge>
+                        <Badge tone="dark">{t('admin.hiddenBadge')}</Badge>
                       )}
                     </button>
                     <div className="flex items-center gap-1.5">
@@ -1012,6 +1035,8 @@ export function AdminStockPage() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* Add / Edit Product Modal */}

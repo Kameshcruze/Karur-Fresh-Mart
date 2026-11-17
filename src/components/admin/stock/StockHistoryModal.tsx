@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { History, X } from 'lucide-react';
 import { Badge, Button, Card } from '../../ui';
 import { useI18n } from '../../../context/I18nContext';
@@ -17,7 +18,18 @@ export function StockHistoryModal({
   entries,
   onClose,
 }: StockHistoryModalProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const locale = lang === 'ta' ? 'ta-IN' : 'en-IN';
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const reasonLabel = (reason: StockHistoryEntry['reason']) => {
@@ -99,7 +111,7 @@ export function StockHistoryModal({
                       {entry.who}
                     </span>
                     <span className="text-[11px] text-muted-text tabular-nums">
-                      {formatDateTime(entry.when)}
+                      {formatDateTime(entry.when, locale)}
                     </span>
                   </div>
                   {!productName && (
@@ -132,7 +144,9 @@ export function StockHistoryModal({
                       >
                         {entry.newValue}
                       </span>{' '}
-                      <span className="text-xs font-normal text-muted-text">units</span>
+                      <span className="text-xs font-normal text-muted-text">
+                        {t('common.unitsLabel')}
+                      </span>
                     </p>
                   )}
                 </div>

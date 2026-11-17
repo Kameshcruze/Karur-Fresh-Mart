@@ -8,7 +8,7 @@ import {
   Save,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Badge, Button, Card } from '../../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ListSkeleton } from '../../components/ui';
 import { useI18n } from '../../context/I18nContext';
 import {
   getBrands,
@@ -31,31 +31,40 @@ export function AdminCombosPage() {
   const [priceEdits, setPriceEdits] = useState<Record<string, number>>({});
   const [savedToast, setSavedToast] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [comboList, productList, brandList] = await Promise.all([
-      getCombos(),
-      getProducts({ includeHidden: true }),
-      getBrands(),
-    ]);
-    setCombos(comboList);
-    setProducts(productList);
-    setBrands(brandList);
+    try {
+      const [comboList, productList, brandList] = await Promise.all([
+        getCombos(),
+        getProducts({ includeHidden: true }),
+        getBrands(),
+      ]);
+      setCombos(comboList);
+      setProducts(productList);
+      setBrands(brandList);
 
-    const activeCombo =
-      comboList.find((c) => c.type === selectedType) ?? comboList[0] ?? null;
-    if (activeCombo) {
-      setDraft({
-        ...activeCombo,
-        customerCanRemoveItems: false,
-        customerCanChangeBrand: activeCombo.customerCanChangeBrand !== false,
-      });
+      const activeCombo =
+        comboList.find((c) => c.type === selectedType) ?? comboList[0] ?? null;
+      if (activeCombo) {
+        setDraft({
+          ...activeCombo,
+          customerCanRemoveItems: false,
+          customerCanChangeBrand: activeCombo.customerCanChangeBrand !== false,
+        });
+      }
+      const priceMap: Record<string, number> = {};
+      for (const p of productList) {
+        priceMap[p.id] = p.price;
+      }
+      setPriceEdits(priceMap);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
     }
-    const priceMap: Record<string, number> = {};
-    for (const p of productList) {
-      priceMap[p.id] = p.price;
-    }
-    setPriceEdits(priceMap);
   }, [selectedType]);
 
   useEffect(() => {
@@ -164,9 +173,24 @@ export function AdminCombosPage() {
         setSavedToast((prev) => (prev === msg ? null : prev));
       }, 3500);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Unable to save combo.');
+      setErrorMsg(err instanceof Error ? err.message : t('admin.comboSaveErrorFallback'));
     }
   };
+
+  if (isLoading) {
+    return <ListSkeleton rows={3} rowHeightClass="h-28" />;
+  }
+
+  if (hasError) {
+    return (
+      <ErrorStateCard
+        title={t('a11y.loadErrorTitle')}
+        subtitle={t('a11y.loadErrorSubtitle')}
+        retryLabel={t('a11y.retry')}
+        onRetry={() => void loadData()}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -249,7 +273,7 @@ export function AdminCombosPage() {
                   htmlFor="combo-name-en"
                   className="block text-xs font-semibold text-dark-ink mb-1"
                 >
-                  Name (English)
+                  {t('admin.comboNameEnLabel')}
                 </label>
                 <input
                   id="combo-name-en"
@@ -267,7 +291,7 @@ export function AdminCombosPage() {
                   htmlFor="combo-name-ta"
                   className="block text-xs font-semibold text-dark-ink mb-1"
                 >
-                  Name (Tamil)
+                  {t('admin.comboNameTaLabel')}
                 </label>
                 <input
                   id="combo-name-ta"
@@ -344,8 +368,8 @@ export function AdminCombosPage() {
                   </p>
                   <p className="text-[11px] text-muted-text mt-0.5">
                     {draft.customerCanChangeBrand !== false
-                      ? 'Brand selector dropdown enabled for shoppers'
-                      : 'Shoppers receive base store brand only'}
+                      ? t('admin.comboBrandToggleEnabledHint')
+                      : t('admin.comboBrandToggleLockedHint')}
                   </p>
                 </div>
 
@@ -422,6 +446,7 @@ export function AdminCombosPage() {
                         </label>
                         <input
                           type="text"
+                          aria-label={`${t('admin.comboItemNameEnAria')} #${idx + 1}`}
                           value={item.productGroup.en}
                           onChange={(e) =>
                             updateItemField(item.id, (cur) => ({
@@ -439,6 +464,7 @@ export function AdminCombosPage() {
                         </label>
                         <input
                           type="text"
+                          aria-label={`${t('admin.comboItemNameTaAria')} #${idx + 1}`}
                           value={item.productGroup.ta}
                           onChange={(e) =>
                             updateItemField(item.id, (cur) => ({
@@ -495,19 +521,19 @@ export function AdminCombosPage() {
 
                         {addableProducts.length > 0 && (
                           <select
-                            aria-label={`Add brand option to ${item.productGroup.en}`}
+                            aria-label={`${t('admin.comboSelectAria')}: ${bi(item.productGroup)}`}
                             value=""
                             onChange={(e) => {
                               if (e.target.value) {
                                 handleToggleAllowedBrand(item.id, e.target.value);
                               }
                             }}
-                            className="min-h-[34px] px-2.5 rounded-[8px] border border-border-grey bg-white text-xs font-medium text-dark-ink cursor-pointer"
+                            className="w-full sm:w-auto max-w-full min-w-0 min-h-[36px] px-2.5 rounded-[8px] border border-border-grey bg-white text-xs font-medium text-dark-ink cursor-pointer"
                           >
-                            <option value="">+ Add brand SKU...</option>
+                            <option value="">{t('admin.addBrandPlaceholder')}</option>
                             {addableProducts.map((p) => (
                               <option key={p.id} value={p.id}>
-                                {resolveBrandName(p.brandId, brands)} — {p.name.en} ({p.packSize})
+                                {resolveBrandName(p.brandId, brands)} — {bi(p.name)} ({p.packSize})
                               </option>
                             ))}
                           </select>
@@ -524,7 +550,7 @@ export function AdminCombosPage() {
                             <div
                               key={prod.id}
                               className={[
-                                'rounded-[8px] bg-white border p-2.5 flex items-center justify-between gap-2',
+                                'rounded-[8px] bg-white border p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0',
                                 isDefault ? 'border-fresh-green' : 'border-border-grey',
                               ].join(' ')}
                             >
@@ -533,17 +559,17 @@ export function AdminCombosPage() {
                                   {brandName}
                                 </p>
                                 <p className="text-[11px] text-muted-text truncate">
-                                  {prod.name.en} · {prod.packSize}
+                                  {bi(prod.name)} · {prod.packSize}
                                 </p>
                               </div>
 
-                              <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex flex-wrap items-center gap-2 shrink-0">
                                 <div className="flex items-center gap-1">
                                   <span className="text-xs text-muted-text">₹</span>
                                   <input
                                     type="number"
                                     min={1}
-                                    aria-label={`${brandName} price`}
+                                    aria-label={t('admin.comboBrandPriceAria', { brand: brandName })}
                                     value={currentPrice}
                                     onChange={(e) =>
                                       setPriceEdits((prev) => ({
@@ -575,7 +601,7 @@ export function AdminCombosPage() {
                                 {allowedProducts.length > 1 && (
                                   <button
                                     type="button"
-                                    aria-label={`Remove brand ${brandName} from ${item.productGroup.en}`}
+                                    aria-label={t('admin.removeBrandAria', { brand: brandName })}
                                     onClick={() => handleToggleAllowedBrand(item.id, prod.id)}
                                     className="px-2 py-1 rounded-[6px] text-[11px] font-semibold text-alert-red hover:bg-alert-red/10 cursor-pointer"
                                   >

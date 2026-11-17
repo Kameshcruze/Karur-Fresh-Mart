@@ -18,8 +18,15 @@ import {
   STORE_PHONE_DISPLAY,
 } from '../../utils/qr';
 
-export function ShopQrPosterCard({ showShopPreviewLink = true }: { showShopPreviewLink?: boolean }) {
+export function ShopQrPosterCard({
+  showShopPreviewLink = true,
+  titleAsHeading = 'h2',
+}: {
+  showShopPreviewLink?: boolean;
+  titleAsHeading?: 'h1' | 'h2';
+}) {
   const { t } = useI18n();
+  const HeadingTag = titleAsHeading;
   const shopUrl = buildPublicShopUrl();
   const [qrPngUrl, setQrPngUrl] = useState<string>('');
 
@@ -38,10 +45,10 @@ export function ShopQrPosterCard({ showShopPreviewLink = true }: { showShopPrevi
       {/* Action Bar (hidden when printing A4 poster) */}
       <div className="print:hidden flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-0.5">
-          <h2 className="font-heading font-bold text-lg sm:text-xl text-dark-ink flex items-center gap-2">
+          <HeadingTag className="font-heading font-bold text-lg sm:text-xl text-dark-ink flex items-center gap-2">
             <QrCode className="w-5 h-5 text-fresh-green shrink-0" aria-hidden="true" />
             <span>{t('qrPoster.title')}</span>
-          </h2>
+          </HeadingTag>
           <p className="text-xs sm:text-sm text-muted-text">{t('qrPoster.subtitle')}</p>
         </div>
 
@@ -117,7 +124,7 @@ export function ShopQrPosterCard({ showShopPreviewLink = true }: { showShopPrevi
             {qrPngUrl ? (
               <img
                 src={qrPngUrl}
-                alt={`QR code linking to ${shopUrl}`}
+                alt={t('qrPoster.qrImageAlt', { url: shopUrl })}
                 data-testid="shop-qr-image"
                 className="w-56 h-56 sm:w-64 sm:h-64 block"
               />

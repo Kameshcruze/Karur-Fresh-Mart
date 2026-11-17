@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowUpDown,
@@ -14,7 +14,9 @@ import {
   Card,
   CategoryIcon,
   Chip,
+  ErrorStateCard,
   ProductCard,
+  ProductGridSkeleton,
 } from '../components/ui';
 import { useI18n } from '../context/I18nContext';
 import {
@@ -42,6 +44,7 @@ export function CategoryPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [poolProducts, setPoolProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>([]);
   const [maxPriceLimit, setMaxPriceLimit] = useState<number | null>(null);
@@ -50,19 +53,19 @@ export function CategoryPage() {
   const [sortBy, setSortBy] = useState<SortOption>('relevance');
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    const loadCategory = (resetFilters: boolean) => {
+  const loadCategory = useCallback(
+    async (resetFilters: boolean) => {
       if (resetFilters) setIsLoading(true);
-      void Promise.all([
-        getCategories(),
-        getBrands(),
-        getProducts({
-          categorySlug: activeSlug === 'all' ? undefined : activeSlug,
-          query: searchQuery || undefined,
-        }),
-      ]).then(([cats, brs, prods]) => {
-        if (!active) return;
+      setHasError(false);
+      try {
+        const [cats, brs, prods] = await Promise.all([
+          getCategories(),
+          getBrands(),
+          getProducts({
+            categorySlug: activeSlug === 'all' ? undefined : activeSlug,
+            query: searchQuery || undefined,
+          }),
+        ]);
         setCategories(cats);
         setBrands(brs);
         setPoolProducts(prods);
@@ -72,24 +75,34 @@ export function CategoryPage() {
           setMinDiscount(0);
           setInStockOnly(false);
         }
+      } catch {
+        setHasError(true);
+      } finally {
         setIsLoading(false);
-      });
-    };
-    loadCategory(true);
-    const unsub = subscribeToCatalogUpdates(() => loadCategory(false));
-    return () => {
-      active = false;
-      unsub();
-    };
-  }, [activeSlug, searchQuery]);
+      }
+    },
+    [activeSlug, searchQuery],
+  );
 
-  // Lock body scroll when mobile filter bottom sheet is open
+  useEffect(() => {
+    void loadCategory(true);
+    return subscribeToCatalogUpdates(() => {
+      void loadCategory(false);
+    });
+  }, [loadCategory]);
+
+  // Lock body scroll and close on Escape when mobile filter bottom sheet is open
   useEffect(() => {
     if (!mobileSheetOpen) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileSheetOpen(false);
+    };
+    document.addEventListener('keydown', handleKey);
     return () => {
       document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', handleKey);
     };
   }, [mobileSheetOpen]);
 
@@ -333,7 +346,7 @@ export function CategoryPage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-text">
+      <nav aria-label={t('a11y.breadcrumbAria')} className="flex items-center gap-1.5 text-xs text-muted-text">
         <Link to="/" className="hover:text-fresh-green font-medium">
           {t('nav.home')}
         </Link>
@@ -480,7 +493,7 @@ export function CategoryPage() {
           {minDiscount > 0 && (
             <Chip selected onClick={() => setMinDiscount(0)}>
               <span className="inline-flex items-center gap-1.5">
-                <span>{minDiscount}%+ OFF</span>
+                <span>{t('category.minDiscountChip', { percent: minDiscount })}</span>
                 <X className="w-3.5 h-3.5" aria-hidden="true" />
               </span>
             </Chip>
@@ -533,14 +546,17 @@ export function CategoryPage() {
         {/* Product Grid */}
         <div className="flex-1 min-w-0 w-full">
           {isLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-64 rounded-[12px] bg-white border border-border-grey/60 animate-pulse"
-                />
-              ))}
-            </div>
+            <ProductGridSkeleton
+              count={10}
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
+            />
+          ) : hasError ? (
+            <ErrorStateCard
+              title={t('a11y.loadErrorTitle')}
+              subtitle={t('a11y.loadErrorSubtitle')}
+              retryLabel={t('a11y.retry')}
+              onRetry={() => void loadCategory(true)}
+            />
           ) : filteredProducts.length === 0 ? (
             <Card className="text-center py-12 space-y-3">
               <p className="text-sm sm:text-base font-medium text-dark-ink">

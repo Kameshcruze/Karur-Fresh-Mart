@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -17,6 +17,8 @@ import {
   Button,
   Card,
   CategoryIcon,
+  ErrorStateCard,
+  ListSkeleton,
 } from '../components/ui';
 import { useCart } from '../context/CartContext';
 import { useI18n } from '../context/I18nContext';
@@ -55,24 +57,25 @@ export function ComboPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    const loadComboPage = (isInitial: boolean) => {
+  const loadComboPage = useCallback(
+    async (isInitial: boolean) => {
       if (isInitial) {
         setIsLoading(true);
         setJustAdded(false);
       }
+      setHasError(false);
 
-      void Promise.all([
-        getComboByType(comboType),
-        getCombos(),
-        getProducts({ includeHidden: true }),
-        getBrands(),
-        getCategories(),
-      ]).then(([found, allCombos, prods, brs, cats]) => {
-        if (!active) return;
+      try {
+        const [found, allCombos, prods, brs, cats] = await Promise.all([
+          getComboByType(comboType),
+          getCombos(),
+          getProducts({ includeHidden: true }),
+          getBrands(),
+          getCategories(),
+        ]);
         setCombo(found);
         setOtherCombo(allCombos.find((c) => c.type !== comboType));
         setProducts(prods);
@@ -83,18 +86,21 @@ export function ComboPage() {
           const initialPricing = calculateComboPricing(found, {}, prods, brs);
           setSelections(initialPricing.resolvedSelections);
         }
+      } catch {
+        setHasError(true);
+      } finally {
         setIsLoading(false);
-      });
-    };
+      }
+    },
+    [comboType],
+  );
 
-    loadComboPage(true);
-    const unsub = subscribeToCatalogUpdates(() => loadComboPage(false));
-
-    return () => {
-      active = false;
-      unsub();
-    };
-  }, [comboType]);
+  useEffect(() => {
+    void loadComboPage(true);
+    return subscribeToCatalogUpdates(() => {
+      void loadComboPage(false);
+    });
+  }, [loadComboPage]);
 
   const categoryById = useMemo(
     () => new Map(categories.map((c) => [c.id, c])),
@@ -135,16 +141,25 @@ export function ComboPage() {
       <div className="space-y-6">
         <div className="h-32 rounded-[12px] bg-white border border-border-grey/60 animate-pulse" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8 space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-24 rounded-[12px] bg-white border border-border-grey/60 animate-pulse"
-              />
-            ))}
+          <div className="lg:col-span-8">
+            <ListSkeleton rows={4} rowHeightClass="h-24" />
           </div>
           <div className="lg:col-span-4 h-72 rounded-[12px] bg-white border border-border-grey/60 animate-pulse" />
         </div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="space-y-4">
+        <h1 className="sr-only">{t('routes.comboTitle')}</h1>
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadComboPage(true)}
+        />
       </div>
     );
   }
@@ -169,7 +184,7 @@ export function ComboPage() {
   return (
     <div className="space-y-6 pb-36 lg:pb-0">
       {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-text">
+      <nav aria-label={t('a11y.breadcrumbAria')} className="flex items-center gap-1.5 text-xs text-muted-text">
         <Link to="/" className="hover:text-fresh-green font-medium">
           {t('nav.home')}
         </Link>
@@ -217,7 +232,7 @@ export function ComboPage() {
           <span
             className={[
               'text-xs font-semibold uppercase tracking-wide',
-              isFamily ? 'text-white/70' : 'text-dark-ink/75',
+              isFamily ? 'text-white/85' : 'text-dark-ink/80',
             ].join(' ')}
           >
             {t('combo.liveTotal')}

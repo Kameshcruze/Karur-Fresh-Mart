@@ -7,7 +7,7 @@ import {
   Settings,
   ShieldCheck,
 } from 'lucide-react';
-import { Badge, Button, Card } from '../../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ListSkeleton } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useI18n } from '../../context/I18nContext';
@@ -39,24 +39,33 @@ export function AdminSettingsPage() {
 
   const [savedToast, setSavedToast] = useState<string | null>(null);
   const [roleToast, setRoleToast] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [settings, userList] = await Promise.all([
-      getDeliverySettings(),
-      getRegisteredUsers(),
-    ]);
-    setHubName(settings.hubName);
-    setRadiusKm(String(settings.deliveryRadiusKm));
-    setDeliveryFee(String(settings.deliveryFeeInr ?? 25));
-    setFreeThreshold(String(settings.freeDeliveryThresholdInr ?? 499));
-    setOpenTime(settings.storeOpenTime ?? '06:30');
-    setCloseTime(settings.storeCloseTime ?? '22:00');
-    setEnabledSlots(
-      settings.enabledSlots && settings.enabledSlots.length > 0
-        ? settings.enabledSlots
-        : ['45min', 'today_evening', 'tomorrow_morning'],
-    );
-    setUsers(userList);
+    try {
+      const [settings, userList] = await Promise.all([
+        getDeliverySettings(),
+        getRegisteredUsers(),
+      ]);
+      setHubName(settings.hubName);
+      setRadiusKm(String(settings.deliveryRadiusKm));
+      setDeliveryFee(String(settings.deliveryFeeInr ?? 25));
+      setFreeThreshold(String(settings.freeDeliveryThresholdInr ?? 499));
+      setOpenTime(settings.storeOpenTime ?? '06:30');
+      setCloseTime(settings.storeCloseTime ?? '22:00');
+      setEnabledSlots(
+        settings.enabledSlots && settings.enabledSlots.length > 0
+          ? settings.enabledSlots
+          : ['45min', 'today_evening', 'tomorrow_morning'],
+      );
+      setUsers(userList);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -130,13 +139,24 @@ export function AdminSettingsPage() {
         <p className="text-sm text-muted-text mt-0.5">{t('admin.settingsSubtitle')}</p>
       </div>
 
+      {loading ? (
+        <ListSkeleton rows={3} rowHeightClass="h-28" />
+      ) : hasError ? (
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadData()}
+        />
+      ) : (
+        <>
       {/* Store, Radius, Fees, Timings & Delivery Slots */}
       <Card padding="lg">
         <form onSubmit={(e) => void handleSaveSettings(e)} className="space-y-5">
           <div className="flex items-center gap-2 text-fresh-green pb-2 border-b border-border-grey">
             <Settings className="w-4 h-4" aria-hidden="true" />
             <span className="text-xs font-bold uppercase tracking-wide">
-              Karur Hub, Delivery Fees & Store Timings
+              {t('admin.settingsSectionHeading')}
             </span>
           </div>
 
@@ -357,7 +377,7 @@ export function AdminSettingsPage() {
                   </td>
                   <td className="py-3 px-3 text-right">
                     <select
-                      aria-label={`Role for ${u.name}`}
+                      aria-label={t('admin.userRoleAria', { name: u.name })}
                       value={u.role}
                       onChange={(e) => void handleRoleChange(u, e.target.value as UserRole)}
                       className="min-h-[38px] px-2.5 rounded-[8px] border border-border-grey bg-white text-xs font-semibold text-dark-ink cursor-pointer"
@@ -373,6 +393,8 @@ export function AdminSettingsPage() {
           </table>
         </div>
       </Card>
+        </>
+      )}
     </div>
   );
 }

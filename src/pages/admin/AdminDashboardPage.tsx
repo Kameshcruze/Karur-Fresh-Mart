@@ -12,7 +12,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Badge, Button, Card, ProductImage } from '../../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ListSkeleton, ProductImage } from '../../components/ui';
 import { useI18n } from '../../context/I18nContext';
 import {
   adjustProductStock,
@@ -37,18 +37,25 @@ export function AdminDashboardPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [userCarts, setUserCarts] = useState<Array<{ userId: string; summary: CartSummary }>>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [restockingId, setRestockingId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
-    const [ordersList, productsList, cartsList] = await Promise.all([
-      getOrders(),
-      getProducts({ includeHidden: true }),
-      getAllUserCarts(),
-    ]);
-    setOrders(ordersList);
-    setProducts(productsList);
-    setUserCarts(cartsList);
-    setIsLoading(false);
+    try {
+      const [ordersList, productsList, cartsList] = await Promise.all([
+        getOrders(),
+        getProducts({ includeHidden: true }),
+        getAllUserCarts(),
+      ]);
+      setOrders(ordersList);
+      setProducts(productsList);
+      setUserCarts(cartsList);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -94,13 +101,19 @@ export function AdminDashboardPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="h-28 animate-pulse bg-white/80" />
-          ))}
-        </div>
-        <Card className="h-72 animate-pulse bg-white/80" />
+        <ListSkeleton rows={4} rowHeightClass="h-24" />
       </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <ErrorStateCard
+        title={t('a11y.loadErrorTitle')}
+        subtitle={t('a11y.loadErrorSubtitle')}
+        retryLabel={t('a11y.retry')}
+        onRetry={() => void loadData()}
+      />
     );
   }
 
@@ -128,7 +141,7 @@ export function AdminDashboardPage() {
 
       {/* 4 Stat Cards */}
       <section
-        aria-label="Store metrics"
+        aria-label={t('admin.storeMetricsAria')}
         className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
       >
         <Card data-testid="stat-todays-orders" className="flex items-start justify-between gap-3">

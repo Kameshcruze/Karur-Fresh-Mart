@@ -28,7 +28,14 @@ export function AdminRouteGuard({ children }: { children: React.ReactNode }) {
         data-testid="admin-role-guard"
         className="min-h-screen bg-soft-grey flex items-center justify-center p-4 sm:p-6"
       >
-        <Card padding="lg" className="w-full max-w-md text-center space-y-5 shadow-sm">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-[8px] focus:bg-fresh-green focus:text-white focus:text-sm focus:font-semibold focus:shadow-lg"
+        >
+          {t('a11y.skipToContent')}
+        </a>
+        <main id="main-content" tabIndex={-1} className="w-full max-w-md focus:outline-none">
+        <Card padding="lg" className="w-full text-center space-y-5 shadow-sm">
           <div className="w-14 h-14 rounded-[12px] bg-alert-red-soft text-alert-red mx-auto flex items-center justify-center">
             <ShieldAlert className="w-7 h-7" aria-hidden="true" />
           </div>
@@ -72,6 +79,7 @@ export function AdminRouteGuard({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
         </Card>
+        </main>
       </div>
     );
   }

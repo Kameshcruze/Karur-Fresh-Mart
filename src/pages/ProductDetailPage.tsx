@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -17,6 +17,7 @@ import {
   Button,
   Card,
   CategoryIcon,
+  ErrorStateCard,
   ProductCard,
   Stepper,
 } from '../components/ui';
@@ -52,6 +53,7 @@ export function ProductDetailPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const [selectedVariantId, setSelectedVariantId] = useState<string>('default');
   const [selectedGalleryIdx, setSelectedGalleryIdx] = useState<number>(0);
@@ -60,24 +62,18 @@ export function ProductDetailPage() {
   const [imgFailed, setImgFailed] = useState<boolean>(false);
   const [notified, setNotified] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (!id) return;
-    let active = true;
-    setIsLoading(true);
-    setSelectedGalleryIdx(0);
-    setQuantity(1);
-    setJustAdded(false);
-    setImgFailed(false);
-
-    const loadPdp = (showSpinner: boolean) => {
+  const loadPdp = useCallback(
+    async (showSpinner: boolean) => {
+      if (!id) return;
       if (showSpinner) setIsLoading(true);
-      void Promise.all([
-        getProductById(id),
-        getProducts(),
-        getCategories(),
-        getBrands(),
-      ]).then(([found, prods, cats, brs]) => {
-        if (!active) return;
+      setHasError(false);
+      try {
+        const [found, prods, cats, brs] = await Promise.all([
+          getProductById(id),
+          getProducts(),
+          getCategories(),
+          getBrands(),
+        ]);
         setProduct(found);
         setAllProducts(prods);
         setCategories(cats);
@@ -92,18 +88,26 @@ export function ProductDetailPage() {
           const notifyList = readStorageJson<string[]>(NOTIFY_STORAGE_KEY, []);
           setNotified(notifyList.includes(found.id));
         }
+      } catch {
+        setHasError(true);
+      } finally {
         setIsLoading(false);
-      });
-    };
+      }
+    },
+    [id],
+  );
 
-    loadPdp(true);
-    const unsub = subscribeToCatalogUpdates(() => loadPdp(false));
-
-    return () => {
-      active = false;
-      unsub();
-    };
-  }, [id]);
+  useEffect(() => {
+    if (!id) return;
+    setSelectedGalleryIdx(0);
+    setQuantity(1);
+    setJustAdded(false);
+    setImgFailed(false);
+    void loadPdp(true);
+    return subscribeToCatalogUpdates(() => {
+      void loadPdp(false);
+    });
+  }, [id, loadPdp]);
 
   const categoryById = useMemo(
     () => new Map(categories.map((c) => [c.id, c])),
@@ -135,6 +139,20 @@ export function ProductDetailPage() {
           <div className="lg:col-span-6 h-80 sm:h-96 rounded-[12px] bg-white border border-border-grey/60 animate-pulse" />
           <div className="lg:col-span-6 h-80 sm:h-96 rounded-[12px] bg-white border border-border-grey/60 animate-pulse" />
         </div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="space-y-4">
+        <h1 className="sr-only">{t('routes.productTitle')}</h1>
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadPdp(true)}
+        />
       </div>
     );
   }
@@ -217,7 +235,7 @@ export function ProductDetailPage() {
     <div className="space-y-8 sm:space-y-10 pb-20 md:pb-0">
       {/* Breadcrumb */}
       <nav
-        aria-label="Breadcrumb"
+        aria-label={t('a11y.breadcrumbAria')}
         className="flex flex-wrap items-center gap-1.5 text-xs text-muted-text"
       >
         <Link to="/" className="hover:text-fresh-green font-medium">

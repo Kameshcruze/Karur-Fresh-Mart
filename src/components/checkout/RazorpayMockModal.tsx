@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -32,6 +32,14 @@ export function RazorpayMockModal({
   const [busy, setBusy] = useState(false);
   const [failureMessage, setFailureMessage] = useState('');
 
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !busy) onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [busy, onClose]);
+
   const handleSimulateSuccess = async () => {
     setBusy(true);
     setFailureMessage('');
@@ -45,6 +53,8 @@ export function RazorpayMockModal({
       } else {
         setFailureMessage(verification.failureReason ?? t('checkout.paymentFailedTitle'));
       }
+    } catch (err) {
+      setFailureMessage(err instanceof Error ? err.message : t('checkout.paymentFailedTitle'));
     } finally {
       setBusy(false);
     }
@@ -59,6 +69,8 @@ export function RazorpayMockModal({
         simulateSuccess: false,
       });
       setFailureMessage(verification.failureReason ?? t('checkout.paymentFailedTitle'));
+    } catch (err) {
+      setFailureMessage(err instanceof Error ? err.message : t('checkout.paymentFailedTitle'));
     } finally {
       setBusy(false);
     }
@@ -83,7 +95,7 @@ export function RazorpayMockModal({
             <p className="font-heading font-bold text-base sm:text-lg leading-snug">
               {t('checkout.razorpayMerchant')}
             </p>
-            <p className="text-xs text-white/75 tabular-nums">
+            <p className="text-xs text-white/85 tabular-nums">
               {t('checkout.razorpayOrderRef')}: {paymentOrder.id}
             </p>
           </div>

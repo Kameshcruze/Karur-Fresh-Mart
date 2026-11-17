@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Banknote, CheckCircle2, Clock, IndianRupee, MapPin, PackageCheck } from 'lucide-react';
-import { Badge, Card } from '../../components/ui';
+import { Badge, Card, ErrorStateCard, ListSkeleton } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { useI18n } from '../../context/I18nContext';
 import {
@@ -15,21 +15,29 @@ import type { Order } from '../../types';
 import { formatDateTime, formatINR } from '../../utils/format';
 
 export function DeliveryHistoryPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { user } = useAuth();
+  const locale = lang === 'ta' ? 'ta-IN' : 'en-IN';
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [partnerId, setPartnerId] = useState('dp-1');
   const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const loadData = useCallback(async () => {
-    const partners = await getDeliveryPartners();
-    const resolved = resolvePartnerForUser(user?.id, user?.mobile, partners);
-    const activePartnerId = resolved?.id ?? 'dp-1';
-    setPartnerId(activePartnerId);
-    const assigned = await getAssignedDeliveries(activePartnerId);
-    setOrders(assigned);
-    setLoading(false);
+    try {
+      const partners = await getDeliveryPartners();
+      const resolved = resolvePartnerForUser(user?.id, user?.mobile, partners);
+      const activePartnerId = resolved?.id ?? 'dp-1';
+      setPartnerId(activePartnerId);
+      const assigned = await getAssignedDeliveries(activePartnerId);
+      setOrders(assigned);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [user?.id, user?.mobile]);
 
   useEffect(() => {
@@ -65,7 +73,7 @@ export function DeliveryHistoryPage() {
       {/* Earnings & Settlement Stats */}
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-[12px] p-4 sm:p-5 space-y-1 bg-deep-forest text-white border border-deep-forest shadow-[var(--shadow-card)]">
-          <div className="flex items-center justify-between gap-2 text-xs text-white/75">
+          <div className="flex items-center justify-between gap-2 text-xs text-white/85">
             <span className="font-semibold uppercase tracking-wide leading-tight">
               {t('delivery.totalEarnedLabel')}
             </span>
@@ -127,10 +135,14 @@ export function DeliveryHistoryPage() {
 
       {/* Completed Deliveries History List */}
       {loading ? (
-        <div className="space-y-3">
-          <Card className="h-24 animate-pulse bg-white/80" />
-          <Card className="h-24 animate-pulse bg-white/80" />
-        </div>
+        <ListSkeleton rows={2} rowHeightClass="h-24" />
+      ) : hasError ? (
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadData()}
+        />
       ) : completedOrders.length === 0 ? (
         <Card padding="lg" className="text-center text-sm text-muted-text py-10">
           {t('delivery.noCompletedHistory')}
@@ -165,7 +177,7 @@ export function DeliveryHistoryPage() {
                       {t('delivery.payoutPerDrop', { amount: formatINR(payout) })}
                     </p>
                     <p className="text-[11px] text-muted-text tabular-nums">
-                      Order {formatINR(order.total)} · {order.payment.method.toUpperCase()}
+                      {t('orders.orderNumberLabel')} {formatINR(order.total)} · {order.payment.method.toUpperCase()}
                     </p>
                   </div>
                 </div>
@@ -180,10 +192,10 @@ export function DeliveryHistoryPage() {
                 <div className="flex items-center justify-between text-[11px] text-muted-text pt-1.5 border-t border-border-grey/80">
                   <span className="inline-flex items-center gap-1">
                     <Clock className="w-3 h-3" aria-hidden="true" />
-                    {formatDateTime(deliveredAt)}
+                    {formatDateTime(deliveredAt, locale)}
                   </span>
                   <span className="text-dark-ink font-medium">
-                    OTP Verified ✓
+                    {t('delivery.otpVerifiedChip')}
                   </span>
                 </div>
               </Card>

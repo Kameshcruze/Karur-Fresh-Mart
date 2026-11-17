@@ -8,7 +8,7 @@ import {
   ShoppingBag,
 } from 'lucide-react';
 import { OrderStatusBadge } from '../components/orders/OrderStatusBadge';
-import { Button, Card } from '../components/ui';
+import { Button, Card, ErrorStateCard, ListSkeleton } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useI18n } from '../context/I18nContext';
@@ -42,17 +42,24 @@ export function OrdersPage() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [reorderToast, setReorderToast] = useState('');
 
   const loadOrders = useCallback(async () => {
     const uid = user?.id ?? 'user-cust-1';
-    const list = await getOrdersByUser(uid);
-    const sorted = [...list].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-    setOrders(sorted);
-    setLoading(false);
+    setHasError(false);
+    try {
+      const list = await getOrdersByUser(uid);
+      const sorted = [...list].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+      setOrders(sorted);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [user?.id]);
 
   // Initial load + live service event listener + polling fallback
@@ -118,11 +125,17 @@ export function OrdersPage() {
       )}
 
       {loading ? (
-        <div className="space-y-4">
-          {[1, 2].map((idx) => (
-            <Card key={idx} padding="lg" className="animate-pulse h-40 bg-white/80" />
-          ))}
-        </div>
+        <ListSkeleton rows={3} rowHeightClass="h-36" />
+      ) : hasError ? (
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => {
+            setLoading(true);
+            void loadOrders();
+          }}
+        />
       ) : orders.length === 0 ? (
         <Card className="max-w-lg mx-auto text-center py-12 space-y-4">
           <div className="w-14 h-14 rounded-[12px] bg-light-green text-fresh-green mx-auto flex items-center justify-center">

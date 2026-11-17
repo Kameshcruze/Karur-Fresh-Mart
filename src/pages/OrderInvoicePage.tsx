@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Package, Printer, Store } from 'lucide-react';
-import { Button, Card } from '../components/ui';
+import { Button, Card, ErrorStateCard } from '../components/ui';
 import { useI18n } from '../context/I18nContext';
 import { getOrderById } from '../services';
 import type { Order } from '../types';
@@ -11,14 +11,39 @@ export function OrderInvoicePage() {
   const { id } = useParams<{ id: string }>();
   const { t, bi, lang } = useI18n();
   const [order, setOrder] = useState<Order | null | undefined>(undefined);
+  const [hasError, setHasError] = useState(false);
 
-  useEffect(() => {
+  const loadInvoice = useCallback(async () => {
     if (!id) {
       setOrder(null);
       return;
     }
-    void getOrderById(id).then((found) => setOrder(found ?? null));
+    setHasError(false);
+    try {
+      const found = await getOrderById(id);
+      setOrder(found ?? null);
+    } catch {
+      setHasError(true);
+    }
   }, [id]);
+
+  useEffect(() => {
+    void loadInvoice();
+  }, [loadInvoice]);
+
+  if (hasError) {
+    return (
+      <div className="space-y-4">
+        <h1 className="sr-only">{t('invoice.title')}</h1>
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadInvoice()}
+        />
+      </div>
+    );
+  }
 
   if (order === undefined) {
     return (
@@ -134,11 +159,18 @@ export function OrderInvoicePage() {
               {t('invoice.paymentModeLabel')}
             </p>
             <p className="font-heading font-bold text-dark-ink uppercase">
-              {order.payment.method} · {order.payment.status}
+              {order.payment.method} ·{' '}
+              {order.payment.status === 'paid'
+                ? t('common.paymentStatusPaid')
+                : order.payment.status === 'refunded'
+                  ? t('common.paymentStatusRefunded')
+                  : order.payment.status === 'failed'
+                    ? t('common.paymentStatusFailed')
+                    : t('common.paymentStatusPending')}
             </p>
             {order.payment.transactionRef && (
               <p className="text-xs text-muted-text tabular-nums">
-                Ref: {order.payment.transactionRef}
+                {t('invoice.refLabel')}: {order.payment.transactionRef}
               </p>
             )}
             <p className="text-xs text-fresh-green font-semibold tabular-nums">

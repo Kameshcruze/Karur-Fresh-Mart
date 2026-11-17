@@ -68,6 +68,13 @@
     outline: 2px solid var(--color-fresh-green);
     outline-offset: 2px;
   }
+
+  .bg-deep-forest :focus-visible,
+  .bg-fresh-green :focus-visible,
+  [class*="from-fresh-green"] :focus-visible {
+    outline: 2px solid var(--color-warm-yellow);
+    outline-offset: 2px;
+  }
 }
 
 .tabular-nums {

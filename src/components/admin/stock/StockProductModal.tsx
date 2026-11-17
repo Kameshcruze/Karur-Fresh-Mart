@@ -87,6 +87,17 @@ export function StockProductModal({
     }
   }, [open, editingProduct, brands, categories]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,23 +124,23 @@ export function StockProductModal({
     const parsedThreshold = Number(lowStockThreshold || 5);
 
     if (!cleanNameEn) {
-      setError('Product name in English is required.');
+      setError(t('admin.validationNameRequired'));
       return;
     }
     if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-      setError('Selling price must be greater than ₹0.');
+      setError(t('admin.validationPriceInvalid'));
       return;
     }
     if (!Number.isFinite(parsedMrp) || parsedMrp < parsedPrice) {
-      setError('MRP must be equal to or greater than selling price.');
+      setError(t('admin.validationPriceInvalid'));
       return;
     }
     if (!Number.isFinite(parsedStock) || parsedStock < 0) {
-      setError('Stock quantity must be zero or positive.');
+      setError(t('admin.validationStockNegative'));
       return;
     }
     if (!Number.isFinite(parsedThreshold) || parsedThreshold < 0) {
-      setError('Low-stock threshold must be zero or positive.');
+      setError(t('admin.validationStockNegative'));
       return;
     }
 
@@ -236,7 +247,7 @@ export function StockProductModal({
                 type="text"
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
-                placeholder="Optional e.g. KFM-RIC-110"
+                placeholder={t('admin.productSkuPlaceholder')}
                 className="w-full min-h-[42px] px-3 rounded-[10px] border border-border-grey bg-white text-sm"
               />
             </div>
@@ -377,7 +388,7 @@ export function StockProductModal({
               <ProductImage
                 tint={imageTint}
                 image={image || undefined}
-                alt={nameEn || 'Preview'}
+                alt={nameEn || t('admin.imagePreviewAlt')}
                 size="md"
               />
             </div>
@@ -387,7 +398,7 @@ export function StockProductModal({
               </label>
               <label className="inline-flex items-center gap-2 min-h-[40px] px-3 rounded-[10px] bg-white border border-border-grey text-xs font-semibold text-dark-ink hover:bg-light-green cursor-pointer">
                 <Upload className="w-3.5 h-3.5 text-fresh-green" aria-hidden="true" />
-                <span>Upload JPG / PNG</span>
+                <span>{t('admin.uploadImageBtn')}</span>
                 <input
                   type="file"
                   accept="image/*"

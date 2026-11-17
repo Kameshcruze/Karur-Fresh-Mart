@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
@@ -13,7 +13,9 @@ import {
   Button,
   Card,
   CategoryIcon,
+  ErrorStateCard,
   ProductCard,
+  ProductGridSkeleton,
 } from '../components/ui';
 import { useI18n } from '../context/I18nContext';
 import {
@@ -53,11 +55,12 @@ export function HomePage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeSlide, setActiveSlide] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    const loadHome = () => {
-      void Promise.all([
+  const loadHome = useCallback(async () => {
+    setHasError(false);
+    try {
+      const [cats, brs, prods, cmbs, bnrs, ofrs, ords] = await Promise.all([
         getCategories(),
         getBrands(),
         getProducts(),
@@ -65,25 +68,27 @@ export function HomePage() {
         getBanners(),
         getOffers(),
         getOrders(),
-      ]).then(([cats, brs, prods, cmbs, bnrs, ofrs, ords]) => {
-        if (!active) return;
-        setCategories(cats);
-        setBrands(brs);
-        setProducts(prods);
-        setCombos(cmbs);
-        setBanners(bnrs);
-        setOffers(ofrs);
-        setOrders(ords);
-        setIsLoading(false);
-      });
-    };
-    loadHome();
-    const unsub = subscribeToCatalogUpdates(loadHome);
-    return () => {
-      active = false;
-      unsub();
-    };
+      ]);
+      setCategories(cats);
+      setBrands(brs);
+      setProducts(prods);
+      setCombos(cmbs);
+      setBanners(bnrs);
+      setOffers(ofrs);
+      setOrders(ords);
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadHome();
+    return subscribeToCatalogUpdates(() => {
+      void loadHome();
+    });
+  }, [loadHome]);
 
   // Gentle auto-advance for hero carousel unless user prefers reduced motion
   useEffect(() => {
@@ -219,6 +224,24 @@ export function HomePage() {
             />
           ))}
         </div>
+        <ProductGridSkeleton count={4} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5" />
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="space-y-4">
+        <h1 className="sr-only">{t('brand.name')}</h1>
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => {
+            setIsLoading(true);
+            void loadHome();
+          }}
+        />
       </div>
     );
   }
@@ -271,7 +294,7 @@ export function HomePage() {
 
       {/* Hero Banner Carousel + Two Combo Cards Beside Hero */}
       {!searchQuery && (
-        <section aria-label="Featured promotions and monthly combos">
+        <section aria-label={t('home.heroSectionAria')}>
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-stretch">
             {/* Hero Banner Carousel (Green gradient #1B8A4B -> #26A65B + Yellow circle accent) */}
             <div className="lg:col-span-8 relative overflow-hidden rounded-[12px] bg-gradient-to-br from-fresh-green to-bright-green text-white p-6 sm:p-8 flex flex-col justify-between min-h-[290px] sm:min-h-[340px] shadow-[var(--shadow-card)]">
@@ -347,14 +370,17 @@ export function HomePage() {
               {/* Carousel Controls */}
               {banners.length > 1 && (
                 <div className="relative z-10 flex items-center justify-between pt-5 mt-2">
-                  <div className="flex items-center gap-2" role="tablist" aria-label="Hero banners">
+                  <div className="flex items-center gap-2" role="tablist" aria-label={t('home.heroBannersAria')}>
                     {banners.map((banner, idx) => (
                       <button
                         key={banner.id}
                         type="button"
                         role="tab"
                         aria-selected={idx === activeSlide}
-                        aria-label={`Banner ${idx + 1}: ${bi(banner.title)}`}
+                        aria-label={t('home.bannerSlideAria', {
+                          index: idx + 1,
+                          title: bi(banner.title),
+                        })}
                         onClick={() => setActiveSlide(idx)}
                         className={[
                           'h-2.5 rounded-full transition-all cursor-pointer',
@@ -406,7 +432,7 @@ export function HomePage() {
                   <h2 className="font-heading font-bold text-lg leading-snug">
                     {individualCombo
                       ? bi(individualCombo.name)
-                      : 'Individual Starter Provision Pack'}
+                      : t('home.individualComboFallback')}
                   </h2>
                 </div>
 
@@ -435,7 +461,7 @@ export function HomePage() {
                   <h2 className="font-heading font-bold text-lg leading-snug">
                     {familyCombo
                       ? bi(familyCombo.name)
-                      : 'Karur Monthly Family Provision Box'}
+                      : t('home.familyComboFallback')}
                   </h2>
                 </div>
 

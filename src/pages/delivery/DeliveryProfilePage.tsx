@@ -8,7 +8,7 @@ import {
   Power,
   Truck,
 } from 'lucide-react';
-import { Badge, Button, Card } from '../../components/ui';
+import { Badge, Button, Card, ErrorStateCard, ListSkeleton } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { useI18n } from '../../context/I18nContext';
 import type { DeliveryPartnerProfile } from '../../mock/users';
@@ -23,10 +23,19 @@ export function DeliveryProfilePage() {
   const { user, logoutUser } = useAuth();
   const { lang, toggleLang, t } = useI18n();
   const [partner, setPartner] = useState<DeliveryPartnerProfile | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const loadPartner = useCallback(async () => {
-    const partners = await getDeliveryPartners();
-    setPartner(resolvePartnerForUser(user?.id, user?.mobile, partners));
+    try {
+      const partners = await getDeliveryPartners();
+      setPartner(resolvePartnerForUser(user?.id, user?.mobile, partners));
+      setHasError(false);
+    } catch {
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [user?.id, user?.mobile]);
 
   useEffect(() => {
@@ -50,6 +59,16 @@ export function DeliveryProfilePage() {
         {t('delivery.profile')}
       </h1>
 
+      {loading ? (
+        <ListSkeleton rows={1} rowHeightClass="h-48" />
+      ) : hasError ? (
+        <ErrorStateCard
+          title={t('a11y.loadErrorTitle')}
+          subtitle={t('a11y.loadErrorSubtitle')}
+          retryLabel={t('a11y.retry')}
+          onRetry={() => void loadPartner()}
+        />
+      ) : (
       <Card padding="lg" className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -96,7 +115,7 @@ export function DeliveryProfilePage() {
               {t('delivery.profileZoneLabel')}
             </span>
             <span className="font-semibold">
-              {partner?.zone ?? 'Karur Central & West'}
+              {partner?.zone ?? t('delivery.defaultZone')}
             </span>
           </div>
         </div>
@@ -138,6 +157,7 @@ export function DeliveryProfilePage() {
           {t('delivery.profileSignOut')}
         </Button>
       </Card>
+      )}
     </div>
   );
 }

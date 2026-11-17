@@ -196,6 +196,8 @@ export async function saveProduct(product: Product): Promise<Product[]> {
   const exists = list.some((p) => p.id === product.id);
   const stamped: Product = {
     ...product,
+    stockQty: Math.max(0, Math.floor(Number.isFinite(product.stockQty) ? product.stockQty : 0)),
+    reservedQty: Math.max(0, Math.floor(Number.isFinite(product.reservedQty) ? product.reservedQty : 0)),
     updatedAt: product.updatedAt ?? new Date().toISOString(),
   };
   const next = exists ? list.map((p) => (p.id === stamped.id ? stamped : p)) : [stamped, ...list];
@@ -211,7 +213,7 @@ export async function adjustProductStock(
   if (!isMockMode()) {
     const res = await apiClient.patch<{ product?: Product }>(
       `/products/${encodeURIComponent(productId)}/stock`,
-      { stockQty, reservedQty, reason: 'manual' },
+      { stockQty: Math.max(0, Math.floor(stockQty)), reservedQty, reason: 'manual' },
     );
     notifyCatalogChanged();
     return res.product;
@@ -223,8 +225,11 @@ export async function adjustProductStock(
     if (p.id !== productId) return p;
     updated = {
       ...p,
-      stockQty: Math.max(0, stockQty),
-      reservedQty: reservedQty !== undefined ? Math.max(0, reservedQty) : p.reservedQty,
+      stockQty: Math.max(0, Math.floor(Number.isFinite(stockQty) ? stockQty : 0)),
+      reservedQty:
+        reservedQty !== undefined
+          ? Math.max(0, Math.floor(Number.isFinite(reservedQty) ? reservedQty : 0))
+          : p.reservedQty,
       updatedAt: now,
     };
     return updated;
@@ -288,12 +293,12 @@ export async function restoreStockForOrder(
   const totalsByProduct = new Map<string, number>();
 
   for (const d of deductions) {
-    totalsByProduct.set(d.productId, (totalsByProduct.get(d.productId) ?? 0) + d.quantity);
+    totalsByProduct.set(d.productId, (totalsByProduct.get(d.productId) ?? 0) + Math.max(0, d.quantity));
   }
 
   const next = list.map((p) => {
     const qty = totalsByProduct.get(p.id);
-    return qty ? { ...p, stockQty: p.stockQty + qty } : p;
+    return qty ? { ...p, stockQty: Math.max(0, p.stockQty + Math.floor(qty)) } : p;
   });
 
   saveProductsStore(next);

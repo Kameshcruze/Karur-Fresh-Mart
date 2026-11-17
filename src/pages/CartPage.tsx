@@ -43,7 +43,9 @@ export function CartPage() {
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
 
   useEffect(() => {
-    void getCoupons().then((list) => setAvailableCoupons(list.filter((c) => c.active)));
+    void getCoupons()
+      .then((list) => setAvailableCoupons(list.filter((c) => c.active)))
+      .catch(() => setAvailableCoupons([]));
     void refresh();
   }, [refresh]);
 
@@ -94,7 +96,7 @@ export function CartPage() {
     if (!trimmed) return;
     const res = await applyCoupon(trimmed);
     if (!res.valid) {
-      setCouponError(res.reason ?? 'Invalid coupon code.');
+      setCouponError(res.reason ?? t('cart.invalidCouponFallback'));
     } else {
       setCouponInput('');
     }
@@ -104,7 +106,7 @@ export function CartPage() {
     setCouponError('');
     const res = await applyCoupon(code);
     if (!res.valid) {
-      setCouponError(res.reason ?? 'Coupon cannot be applied.');
+      setCouponError(res.reason ?? t('cart.invalidCouponFallback'));
     }
   };
 

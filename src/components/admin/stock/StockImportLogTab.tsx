@@ -12,7 +12,8 @@ export interface StockImportLogTabProps {
 }
 
 export function StockImportLogTab({ logs, history }: StockImportLogTabProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const locale = lang === 'ta' ? 'ta-IN' : 'en-IN';
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
 
   const reasonLabel = (reason: StockHistoryEntry['reason']) => {
@@ -25,6 +26,17 @@ export function StockImportLogTab({ logs, history }: StockImportLogTabProps) {
         return t('admin.reasonCorrection');
       default:
         return t('admin.reasonManual');
+    }
+  };
+
+  const modeLabel = (mode: StockImportLog['mode']) => {
+    switch (mode) {
+      case 'update_stock_only':
+        return t('admin.modeUpdateStockOnly');
+      case 'replace_all_stock':
+        return t('admin.modeReplaceAll');
+      default:
+        return t('admin.modeAddUpdate');
     }
   };
 
@@ -56,18 +68,30 @@ export function StockImportLogTab({ logs, history }: StockImportLogTabProps) {
                         <p className="font-heading font-bold text-sm text-dark-ink truncate">
                           {log.fileName}
                         </p>
-                        <Badge tone="dark">{log.mode}</Badge>
+                        <Badge tone="dark">{modeLabel(log.mode)}</Badge>
                       </div>
                       <p className="text-xs text-muted-text tabular-nums">
-                        {formatDateTime(log.importedAt)} · {log.adminName}
+                        {formatDateTime(log.importedAt, locale)} · {log.adminName}
                       </p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      <Badge tone="yellow">+{log.created} new</Badge>
-                      <Badge tone="green">{log.updated} upd</Badge>
-                      {log.skipped > 0 && <Badge tone="dark">{log.skipped} skip</Badge>}
-                      {log.failed > 0 && <Badge tone="red">{log.failed} err</Badge>}
+                      <Badge tone="yellow">
+                        {t('admin.importCreatedChip', { count: log.created })}
+                      </Badge>
+                      <Badge tone="green">
+                        {t('admin.importUpdatedChip', { count: log.updated })}
+                      </Badge>
+                      {log.skipped > 0 && (
+                        <Badge tone="dark">
+                          {t('admin.importSkippedChip', { count: log.skipped })}
+                        </Badge>
+                      )}
+                      {log.failed > 0 && (
+                        <Badge tone="red">
+                          {t('admin.importFailedChip', { count: log.failed })}
+                        </Badge>
+                      )}
 
                       {log.errorDetails.length > 0 && (
                         <>
@@ -88,7 +112,7 @@ export function StockImportLogTab({ logs, history }: StockImportLogTabProps) {
                             aria-expanded={expanded}
                             className="min-h-[36px] px-2.5 rounded-[8px] border border-border-grey bg-white text-xs font-semibold text-dark-ink inline-flex items-center gap-1 cursor-pointer"
                           >
-                            <span>Issues</span>
+                            <span>{t('admin.importIssuesLabel')}</span>
                             {expanded ? (
                               <ChevronUp className="w-3.5 h-3.5" />
                             ) : (
@@ -104,7 +128,7 @@ export function StockImportLogTab({ logs, history }: StockImportLogTabProps) {
                     <div className="border-t border-border-grey bg-white px-3.5 py-2.5 space-y-1.5 text-xs">
                       {log.errorDetails.map((err, i) => (
                         <p key={`${log.logId}-err-${i}`} className="text-alert-red">
-                          Row {err.rowNumber} ({err.item_code || err.product_name}):{' '}
+                          {t('admin.importRowLabel', { row: err.rowNumber })} ({err.item_code || err.product_name}):{' '}
                           {err.errors.join(', ')}
                         </p>
                       ))}
@@ -151,7 +175,7 @@ export function StockImportLogTab({ logs, history }: StockImportLogTabProps) {
                     </td>
                     <td className="py-2.5 px-3 text-dark-ink">{entry.who}</td>
                     <td className="py-2.5 px-3 text-xs text-muted-text tabular-nums">
-                      {formatDateTime(entry.when)}
+                      {formatDateTime(entry.when, locale)}
                     </td>
                     <td className="py-2.5 px-3 tabular-nums font-semibold">
                       {entry.field === 'price' && entry.oldPrice !== undefined && entry.newPrice !== undefined ? (

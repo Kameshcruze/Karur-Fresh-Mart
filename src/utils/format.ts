@@ -23,11 +23,11 @@ export function calculateDiscountPercent(mrp: number, price: number): number {
 /**
  * Format an ISO timestamp as a concise readable Indian date & time (e.g., 15 Nov, 01:45 PM).
  */
-export function formatDateTime(iso?: string): string {
+export function formatDateTime(iso?: string, locale = 'en-IN'): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return new Intl.DateTimeFormat('en-IN', {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',

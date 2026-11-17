@@ -14,6 +14,7 @@ import type {
   Product,
   User,
 } from '../types';
+import { apiClient, isMockMode } from './api';
 import { calculateComboPricing } from './comboService';
 import { computeCouponDiscount } from './offerService';
 import {
@@ -77,16 +78,30 @@ export function subscribeToCartUpdates(listener: CartUpdateListener): () => void
 }
 
 export async function getCartReminders(): Promise<Record<string, string>> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ reminders: Record<string, string> }>(
+      '/admin/live-carts/reminders',
+    );
+    return res.reminders;
+  }
   return readStorageJson<Record<string, string>>(CART_REMINDERS_STORAGE_KEY, {});
 }
 
 /**
  * Records a mock WhatsApp/SMS cart reminder timestamp per customer.
- * Plug a real WhatsApp Business / SMS campaign hook here later.
+ * INTEGRATION SEAM (WhatsApp Business Template Campaign):
+ * Calls `POST /api/admin/live-carts/:userId/remind` when `USE_MOCK` is false.
  */
 export async function saveUserCartReminder(
   userId: string,
 ): Promise<Record<string, string>> {
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ reminders: Record<string, string> }>(
+      `/admin/live-carts/${encodeURIComponent(userId)}/remind`,
+    );
+    notifyCartsChanged();
+    return res.reminders;
+  }
   const existing = readStorageJson<Record<string, string>>(
     CART_REMINDERS_STORAGE_KEY,
     {},
@@ -300,10 +315,21 @@ function loadCartDeliveryConfig(): { deliveryFeeInr?: number; freeDeliveryThresh
 }
 
 export async function getCart(userId?: string): Promise<Cart> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ cart: Cart }>('/cart', { userId });
+    return res.cart;
+  }
   return loadCartStore(userId);
 }
 
 export async function getCartSummary(userId?: string): Promise<CartSummary> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ summary: CartSummary }>('/cart', {
+      userId,
+      includeSummary: true,
+    });
+    return res.summary;
+  }
   const cart = loadCartStore(userId);
   const catalog = loadProductsStore();
   const combos = readStorageJson<Combo[]>('kfm_combos_v2', MOCK_COMBOS);
@@ -317,6 +343,12 @@ export async function getCartSummary(userId?: string): Promise<CartSummary> {
 export async function getAllUserCarts(): Promise<
   Array<{ userId: string; cart: Cart; summary: CartSummary }>
 > {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{
+      carts: Array<{ userId: string; cart: Cart; summary: CartSummary }>;
+    }>('/admin/live-carts');
+    return res.carts;
+  }
   const all = loadAllUserCartsMap();
   const catalog = loadProductsStore();
   const combos = readStorageJson<Combo[]>('kfm_combos_v2', MOCK_COMBOS);
@@ -345,6 +377,18 @@ export async function addProductToCart(
   packSize?: string,
   userId?: string,
 ): Promise<CartSummary> {
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ summary: CartSummary }>('/cart/items', {
+      kind: 'product',
+      productId,
+      quantity,
+      variantId,
+      packSize,
+      userId,
+    });
+    notifyCartsChanged();
+    return res.summary;
+  }
   const cart = loadCartStore(userId);
   const normalizedVariantId = variantId && variantId !== 'default' ? variantId : undefined;
   const lineId = buildProductLineId(productId, normalizedVariantId);
@@ -388,6 +432,16 @@ export async function addComboToCart(
   selectedBrandProductIds: Record<string, string> = {},
   quantity = 1,
 ): Promise<CartSummary> {
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ summary: CartSummary }>('/cart/items', {
+      kind: 'combo',
+      comboId,
+      selectedBrandProductIds,
+      quantity,
+    });
+    notifyCartsChanged();
+    return res.summary;
+  }
   const combos = readStorageJson<Combo[]>('kfm_combos_v2', MOCK_COMBOS);
   const combo = combos.find((c) => c.id === comboId || c.type === comboId);
   if (!combo) {
@@ -436,6 +490,14 @@ export async function updateComboBrandChoice(
   comboItemId: string,
   newProductId: string,
 ): Promise<CartSummary> {
+  if (!isMockMode()) {
+    const res = await apiClient.patch<{ summary: CartSummary }>(
+      `/cart/items/${encodeURIComponent(lineId)}/brands`,
+      { comboItemId, newProductId },
+    );
+    notifyCartsChanged();
+    return res.summary;
+  }
   const cart = loadCartStore();
   const idx = cart.items.findIndex((i) => i.lineId === lineId && i.kind === 'combo');
   if (idx < 0) return getCartSummary();
@@ -464,6 +526,20 @@ export async function updateComboBrandChoice(
 }
 
 export async function updateCartItemQuantity(lineId: string, quantity: number): Promise<CartSummary> {
+  if (!isMockMode()) {
+    const qty = Math.floor(quantity);
+    const res =
+      qty <= 0
+        ? await apiClient.delete<{ summary: CartSummary }>(
+            `/cart/items/${encodeURIComponent(lineId)}`,
+          )
+        : await apiClient.patch<{ summary: CartSummary }>(
+            `/cart/items/${encodeURIComponent(lineId)}`,
+            { quantity: qty },
+          );
+    notifyCartsChanged();
+    return res.summary;
+  }
   const cart = loadCartStore();
   const qty = Math.floor(quantity);
   cart.items =
@@ -488,6 +564,13 @@ export async function removeCartItem(lineId: string): Promise<CartSummary> {
 }
 
 export async function setCartDeliverySlot(slot: DeliverySlotId): Promise<CartSummary> {
+  if (!isMockMode()) {
+    const res = await apiClient.patch<{ summary: CartSummary }>('/cart/slot', {
+      deliverySlot: slot,
+    });
+    notifyCartsChanged();
+    return res.summary;
+  }
   const cart = loadCartStore();
   cart.deliverySlot = slot;
   saveCartStore(cart);
@@ -495,6 +578,13 @@ export async function setCartDeliverySlot(slot: DeliverySlotId): Promise<CartSum
 }
 
 export async function applyCouponToCart(code: string): Promise<CartSummary> {
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ summary: CartSummary }>('/cart/coupon', {
+      code: code.trim().toUpperCase(),
+    });
+    notifyCartsChanged();
+    return res.summary;
+  }
   const cart = loadCartStore();
   cart.couponCode = code.trim().toUpperCase();
   saveCartStore(cart);
@@ -502,6 +592,11 @@ export async function applyCouponToCart(code: string): Promise<CartSummary> {
 }
 
 export async function clearCouponFromCart(): Promise<CartSummary> {
+  if (!isMockMode()) {
+    const res = await apiClient.delete<{ summary: CartSummary }>('/cart/coupon');
+    notifyCartsChanged();
+    return res.summary;
+  }
   const cart = loadCartStore();
   delete cart.couponCode;
   saveCartStore(cart);
@@ -509,6 +604,11 @@ export async function clearCouponFromCart(): Promise<CartSummary> {
 }
 
 export async function clearCart(userId?: string): Promise<CartSummary> {
+  if (!isMockMode()) {
+    const res = await apiClient.delete<{ summary: CartSummary }>('/cart');
+    notifyCartsChanged();
+    return res.summary;
+  }
   const uid = getActiveUserId(userId);
   saveCartStore({ userId: uid, items: [], deliverySlot: DEFAULT_DELIVERY_SLOT, updatedAt: new Date().toISOString() }, uid);
   return getCartSummary(uid);

@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { AdminRouteGuard } from './components/admin/AdminRouteGuard';
+import { DeliveryRouteGuard } from './components/delivery';
 import { AdminShell, AppShell, DeliveryShell } from './components/layout';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
@@ -23,6 +24,13 @@ import { CartPage } from './pages/CartPage';
 import { CategoryPage } from './pages/CategoryPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { ComboPage } from './pages/ComboPage';
+import {
+  DeliveryConfirmOtpPage,
+  DeliveryHistoryPage,
+  DeliveryHomePage,
+  DeliveryOrderDetailPage,
+  DeliveryProfilePage,
+} from './pages/delivery';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { OrderInvoicePage } from './pages/OrderInvoicePage';
@@ -53,9 +61,11 @@ function AdminLayout() {
 
 function DeliveryLayout() {
   return (
-    <DeliveryShell>
-      <Outlet />
-    </DeliveryShell>
+    <DeliveryRouteGuard>
+      <DeliveryShell>
+        <Outlet />
+      </DeliveryShell>
+    </DeliveryRouteGuard>
   );
 }
 
@@ -107,28 +117,14 @@ export default function App() {
               <Route path="*" element={<Navigate to="/admin" replace />} />
             </Route>
 
-            {/* Delivery Partner Routes */}
+            {/* Delivery Partner Routes (Phone-First, Role Protected) */}
             <Route path="/delivery" element={<DeliveryLayout />}>
-              <Route
-                index
-                element={<SkeletonPage titleKey="routes.deliveryHomeTitle" role="delivery" backTo="/delivery" />}
-              />
-              <Route
-                path="orders"
-                element={<SkeletonPage titleKey="routes.deliveryOrdersTitle" role="delivery" backTo="/delivery" />}
-              />
-              <Route
-                path="orders/:id"
-                element={<SkeletonPage titleKey="routes.deliveryOrderDetailTitle" role="delivery" backTo="/delivery" />}
-              />
-              <Route
-                path="history"
-                element={<SkeletonPage titleKey="routes.deliveryHistoryTitle" role="delivery" backTo="/delivery" />}
-              />
-              <Route
-                path="profile"
-                element={<SkeletonPage titleKey="routes.deliveryProfileTitle" role="delivery" backTo="/delivery" />}
-              />
+              <Route index element={<DeliveryHomePage />} />
+              <Route path="orders" element={<DeliveryHomePage />} />
+              <Route path="orders/:id" element={<DeliveryOrderDetailPage />} />
+              <Route path="orders/:id/confirm" element={<DeliveryConfirmOtpPage />} />
+              <Route path="history" element={<DeliveryHistoryPage />} />
+              <Route path="profile" element={<DeliveryProfilePage />} />
               <Route path="*" element={<Navigate to="/delivery" replace />} />
             </Route>
 

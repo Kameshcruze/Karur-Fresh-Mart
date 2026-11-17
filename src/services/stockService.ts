@@ -20,10 +20,12 @@ import type {
   StockPreviewRow,
   StockSheetExportRow,
 } from '../types';
+import { apiClient, isMockMode } from './api';
 import {
   getCategories,
   loadBrandsStore,
   loadProductsStore,
+  notifyCatalogChanged,
   resolveBrandName,
   saveBrandsStore,
   saveProductsStore,
@@ -133,12 +135,22 @@ export function appendStockHistoryEntry(
 }
 
 export async function getStockHistory(productId?: string): Promise<StockHistoryEntry[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ entries: StockHistoryEntry[] }>('/stock/history', {
+      productId,
+    });
+    return res.entries;
+  }
   const history = loadStockHistoryStore();
   if (!productId) return history;
   return history.filter((h) => h.productId === productId);
 }
 
 export async function getImportLogs(): Promise<StockImportLog[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ logs: StockImportLog[] }>('/stock/import-logs');
+    return res.logs;
+  }
   return loadImportLogsStore();
 }
 
@@ -524,6 +536,34 @@ export async function importProducts(
     onProgress?: (percent: number) => void;
   },
 ): Promise<StockImportResult> {
+  if (!isMockMode()) {
+    options?.onProgress?.(25);
+    const res = await apiClient.post<StockImportResult>('/products/import', {
+      mode,
+      fileName: options?.fileName?.trim() || 'stock-import.xlsx',
+      adminName: options?.adminName?.trim(),
+      rows: rows.map((r) => ({
+        rowNumber: r.rowNumber,
+        skip: r.skip,
+        item_code: r.item_code,
+        product_name: r.product_name,
+        product_name_tamil: r.product_name_tamil,
+        brand: r.brand,
+        category: r.category,
+        pack_size: r.pack_size,
+        unit: r.unit,
+        mrp: r.mrp,
+        selling_price: r.selling_price,
+        stock_qty: r.stock_qty,
+        low_stock_threshold: r.low_stock_threshold,
+        visible_online: r.visible_online ? 'yes' : 'no',
+        image_url: r.image_url,
+      })),
+    });
+    notifyCatalogChanged();
+    options?.onProgress?.(100);
+    return res;
+  }
   const categories = await getCategories();
   const brands = [...loadBrandsStore()];
   let brandsDirty = false;
@@ -823,6 +863,18 @@ export async function updateStock(
   reason: StockHistoryReason = 'manual',
   options?: { who?: string; note?: string },
 ): Promise<Product | undefined> {
+  if (!isMockMode()) {
+    const res = await apiClient.patch<{ product?: Product }>(
+      `/products/${encodeURIComponent(productId)}/stock`,
+      {
+        stockQty: Math.max(0, Math.floor(qty)),
+        reason,
+        note: options?.note,
+      },
+    );
+    notifyCatalogChanged();
+    return res.product;
+  }
   const list = loadProductsStore();
   const existing = list.find((p) => p.id === productId);
   if (!existing) return undefined;
@@ -866,6 +918,19 @@ export async function updatePriceInline(
   mrp?: number,
   options?: { who?: string; reason?: StockHistoryReason; note?: string },
 ): Promise<Product | undefined> {
+  if (!isMockMode()) {
+    const res = await apiClient.patch<{ product?: Product }>(
+      `/products/${encodeURIComponent(productId)}/price`,
+      {
+        sellingPrice: Math.max(1, Math.round(sellingPrice)),
+        mrp: mrp !== undefined ? Math.round(mrp) : undefined,
+        reason: options?.reason ?? 'manual',
+        note: options?.note,
+      },
+    );
+    notifyCatalogChanged();
+    return res.product;
+  }
   const list = loadProductsStore();
   const existing = list.find((p) => p.id === productId);
   if (!existing) return undefined;
@@ -950,4 +1015,37 @@ export function exportStock(
 export function downloadExportStockXlsx(): void {
   const { workbook, filename } = exportStock();
   XLSX.writeFile(workbook, filename);
+}
+
+// =============================================================================
+// FUTURE INTEGRATION PLACEHOLDER — OPTECH BILLING SOFTWARE SYNC (DEFERRED)
+// =============================================================================
+// IMPORTANT: Optech POS/billing integration is NOT used in the current release.
+// All inventory & pricing updates come exclusively from:
+//   1. Admin manual entry / quick stock update (/admin/stock)
+//   2. Excel / CSV bulk upload & export (Section 10B)
+//
+// When Karur Fresh Mart enables Optech counter-billing sync in a later phase,
+// implement `POST /api/integrations/optech/sync` on the Node.js backend so it:
+//   1. Fetches SKU (`item_code`) quantity deltas from Optech's local/cloud endpoint.
+//   2. Calls the same transactional `stock` update + `stock_history` audit writer
+//      without altering storefront or cart consumers.
+export interface OptechSyncResult {
+  enabled: boolean;
+  status: 'not_configured' | 'completed';
+  syncedSkus: number;
+  message: string;
+}
+
+export async function syncWithOptechBilling(): Promise<OptechSyncResult> {
+  if (!isMockMode()) {
+    return apiClient.post<OptechSyncResult>('/integrations/optech/sync');
+  }
+  return {
+    enabled: false,
+    status: 'not_configured',
+    syncedSkus: 0,
+    message:
+      'Optech sync is disabled in Phase 1. Manage stock via manual entry or Excel/CSV import (/admin/stock).',
+  };
 }

@@ -3,6 +3,7 @@ import type {
   PaymentOrder,
   PaymentVerificationResult,
 } from '../types';
+import { apiClient, isMockMode } from './api';
 
 export interface CreatePaymentOrderInput {
   amount: number;
@@ -24,10 +25,15 @@ export interface VerifyPaymentInput {
 /**
  * Creates a gateway payment order ahead of opening checkout.
  *
- * INTEGRATION SEAM (Razorpay / Cashfree Order Creation):
- * Replace this mock generator with a backend call (`POST /api/payments/create-order`)
- * that creates a real Razorpay Order (`razorpay.orders.create({ amount: amount * 100, currency: 'INR', receipt })`)
- * or Cashfree Order using your server-side `key_secret`, returning the order ID to the client.
+ * INTEGRATION SEAM — Razorpay Orders API:
+ * When `USE_MOCK` is false, `POST /api/payments/create-order` invokes the Razorpay Node SDK:
+ *   const rzOrder = await razorpay.orders.create({
+ *     amount: Math.round(amount * 100), // paise
+ *     currency: 'INR',
+ *     receipt,
+ *     notes: { userId, method }
+ *   });
+ * The returned `id` (`order_xxx`) is passed directly into `new window.Razorpay({ key: VITE_RAZORPAY_KEY_ID, order_id: rzOrder.id, ... })`.
  */
 export async function createPaymentOrder(
   input: CreatePaymentOrderInput,
@@ -36,13 +42,15 @@ export async function createPaymentOrder(
     throw new Error('Payment amount must be greater than zero.');
   }
 
+  if (!isMockMode()) {
+    return apiClient.post<PaymentOrder>('/payments/create-order', input);
+  }
+
   const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
   const receipt = input.receipt ?? `rcpt_kfm_${Date.now().toString().slice(-6)}`;
 
-  // ---------------------------------------------------------------------------
-  // TODO [Razorpay / Cashfree Checkout Hook]:
-  // Call server endpoint to obtain real gateway order_id before opening window.Razorpay(options).
-  // ---------------------------------------------------------------------------
+  // TODO [Razorpay Checkout Hook]:
+  // Replace mock order creation with server call to Razorpay Orders API (`USE_MOCK=false`).
   return {
     id: `order_mock_${suffix}`,
     gateway: 'razorpay_mock',
@@ -61,21 +69,27 @@ export async function createPaymentOrder(
 /**
  * Verifies a payment response after checkout completion.
  *
- * INTEGRATION SEAM (Server-Side Signature Verification):
- * In production, send `{ razorpay_order_id, razorpay_payment_id, razorpay_signature }`
- * to your backend (`POST /api/payments/verify`) to compute HMAC-SHA256 with `RAZORPAY_KEY_SECRET`
- * and verify before marking the order paid and deducting inventory.
+ * INTEGRATION SEAM — Razorpay Server-Side HMAC-SHA256 Signature Verification:
+ * When `USE_MOCK` is false, `POST /api/payments/verify` runs on Node.js:
+ *   const expected = crypto
+ *     .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+ *     .update(`${paymentOrderId}|${paymentId}`)
+ *     .digest('hex');
+ *   if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
+ *     return res.status(400).json({ verified: false, failureReason: 'Invalid signature' });
+ *   }
  */
 export async function verifyPayment(
   input: VerifyPaymentInput,
 ): Promise<PaymentVerificationResult> {
+  if (!isMockMode()) {
+    return apiClient.post<PaymentVerificationResult>('/payments/verify', input);
+  }
+
   const now = new Date().toISOString();
 
-  // ---------------------------------------------------------------------------
-  // TODO [Server-Side Signature Verification Hook]:
-  // const expectedSig = crypto.createHmac('sha256', KEY_SECRET)
-  //   .update(`${input.paymentOrderId}|${input.paymentId}`).digest('hex');
-  // ---------------------------------------------------------------------------
+  // TODO [Razorpay Signature Verification Hook]:
+  // Verify `razorpay_order_id|razorpay_payment_id` HMAC-SHA256 on backend (`USE_MOCK=false`).
   if (input.simulateSuccess === false) {
     return {
       verified: false,

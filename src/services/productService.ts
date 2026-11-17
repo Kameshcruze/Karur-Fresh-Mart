@@ -2,6 +2,7 @@ import { MOCK_BRANDS } from '../mock/brands';
 import { MOCK_CATEGORIES } from '../mock/categories';
 import { MOCK_PRODUCTS } from '../mock/products';
 import type { Brand, Category, Product, ProductVariant } from '../types';
+import { apiClient, isMockMode } from './api';
 import { readStorageJson, writeStorageJson } from './storage';
 
 const PRODUCTS_STORAGE_KEY = 'kfm_products_v2';
@@ -52,6 +53,12 @@ export function saveProductsStore(products: Product[]): void {
 }
 
 export async function getCategories(): Promise<Category[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ categories: Category[] }>('/categories', undefined, {
+      skipAuth: true,
+    });
+    return res.categories;
+  }
   const stored = readStorageJson<Category[] | null>(CATEGORIES_STORAGE_KEY, null);
   if (stored && Array.isArray(stored) && stored.length > 0) {
     return stored;
@@ -66,6 +73,12 @@ export async function getCategoryBySlug(slug: string): Promise<Category | undefi
 }
 
 export async function getBrands(): Promise<Brand[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ brands: Brand[] }>('/brands', undefined, {
+      skipAuth: true,
+    });
+    return res.brands;
+  }
   const stored = readStorageJson<Brand[] | null>(BRANDS_STORAGE_KEY, null);
   if (stored && Array.isArray(stored) && stored.length > 0) {
     return stored;
@@ -105,6 +118,18 @@ export async function getProducts(filters?: {
   includeHidden?: boolean;
   onlyFeatured?: boolean;
 }): Promise<Product[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ products: Product[] }>('/products', {
+      categoryId: filters?.categoryId,
+      categorySlug: filters?.categorySlug,
+      brandId: filters?.brandId,
+      query: filters?.query,
+      includeHidden: filters?.includeHidden,
+      onlyFeatured: filters?.onlyFeatured,
+    });
+    return res.products;
+  }
+
   const [products, categories, brands] = await Promise.all([
     Promise.resolve(loadProductsStore()),
     getCategories(),
@@ -148,6 +173,12 @@ export async function getProducts(filters?: {
 }
 
 export async function getProductById(id: string): Promise<Product | undefined> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ product?: Product }>(
+      `/products/${encodeURIComponent(id)}`,
+    );
+    return res.product;
+  }
   return loadProductsStore().find((p) => p.id === id);
 }
 
@@ -156,6 +187,11 @@ export async function getProductsByCategory(slug: string): Promise<Product[]> {
 }
 
 export async function saveProduct(product: Product): Promise<Product[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ products: Product[] }>('/admin/products', product);
+    notifyCatalogChanged();
+    return res.products;
+  }
   const list = loadProductsStore();
   const exists = list.some((p) => p.id === product.id);
   const stamped: Product = {
@@ -172,6 +208,14 @@ export async function adjustProductStock(
   stockQty: number,
   reservedQty?: number,
 ): Promise<Product | undefined> {
+  if (!isMockMode()) {
+    const res = await apiClient.patch<{ product?: Product }>(
+      `/products/${encodeURIComponent(productId)}/stock`,
+      { stockQty, reservedQty, reason: 'manual' },
+    );
+    notifyCatalogChanged();
+    return res.product;
+  }
   const list = loadProductsStore();
   let updated: Product | undefined;
   const now = new Date().toISOString();
@@ -666,6 +710,13 @@ export function getFrequentlyBoughtTogether(
 export async function getSearchSuggestions(query: string, limit = 6): Promise<Product[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ suggestions: Product[] }>('/products/suggestions', {
+      q: trimmed,
+      limit,
+    });
+    return res.suggestions;
+  }
   const matches = await getProducts({ query: trimmed });
   return matches.slice(0, limit);
 }

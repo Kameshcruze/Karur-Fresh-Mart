@@ -12,6 +12,7 @@ import type {
   Product,
   ProductTint,
 } from '../types';
+import { apiClient, isMockMode } from './api';
 import { addComboToCart, addProductToCart, clearCart, getCartSummary } from './cartService';
 import {
   deductStockForOrder,
@@ -86,14 +87,28 @@ export function saveOrdersStore(orders: Order[]): void {
 }
 
 export async function getOrders(): Promise<Order[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ orders: Order[] }>('/orders');
+    return res.orders;
+  }
   return loadOrdersStore();
 }
 
 export async function getOrdersByUser(userId: string): Promise<Order[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ orders: Order[] }>('/orders', { userId });
+    return res.orders;
+  }
   return loadOrdersStore().filter((o) => o.userId === userId);
 }
 
 export async function getOrderById(id: string): Promise<Order | undefined> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ order?: Order }>(
+      `/orders/${encodeURIComponent(id)}`,
+    );
+    return res.order;
+  }
   return loadOrdersStore().find((o) => o.id === id);
 }
 
@@ -107,6 +122,11 @@ export async function placeOrder(input: {
   transactionRef?: string;
   assignDefaultPartner?: boolean;
 }): Promise<Order> {
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ order: Order }>('/orders', input);
+    notifyOrdersChanged();
+    return res.order;
+  }
   const summary = await getCartSummary(input.userId);
   if (summary.lines.length === 0) {
     throw new Error('Cannot place an order with an empty cart.');
@@ -277,6 +297,14 @@ export async function updateOrderStatus(
   orderId: string,
   status: OrderStatus,
 ): Promise<Order | undefined> {
+  if (!isMockMode()) {
+    const res = await apiClient.patch<{ order?: Order }>(
+      `/admin/orders/${encodeURIComponent(orderId)}/status`,
+      { status },
+    );
+    notifyOrdersChanged();
+    return res.order;
+  }
   const orders = loadOrdersStore();
   const target = orders.find((o) => o.id === orderId);
   if (!target) return undefined;
@@ -340,6 +368,14 @@ export async function cancelAndRefundOrder(
   orderId: string,
   shouldRefund = true,
 ): Promise<Order | undefined> {
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ order?: Order }>(
+      `/admin/orders/${encodeURIComponent(orderId)}/cancel-refund`,
+      { shouldRefund },
+    );
+    notifyOrdersChanged();
+    return res.order;
+  }
   const orders = loadOrdersStore();
   const target = orders.find((o) => o.id === orderId);
   if (!target) return undefined;
@@ -401,6 +437,13 @@ export async function cancelAndRefundOrder(
  * Marks a paid order's payment transaction as refunded (preserving order status history).
  */
 export async function refundOrderPayment(orderId: string): Promise<Order | undefined> {
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ order?: Order }>(
+      `/admin/payments/${encodeURIComponent(orderId)}/refund`,
+    );
+    notifyOrdersChanged();
+    return res.order;
+  }
   const orders = loadOrdersStore();
   const target = orders.find((o) => o.id === orderId);
   if (!target || target.payment.status !== 'paid') return target;
@@ -430,6 +473,11 @@ export async function refundOrderPayment(orderId: string): Promise<Order | undef
 export async function reorderOrder(
   orderId: string,
 ): Promise<{ addedLines: number; skippedLines: number }> {
+  if (!isMockMode()) {
+    return apiClient.post<{ addedLines: number; skippedLines: number }>(
+      `/orders/${encodeURIComponent(orderId)}/reorder`,
+    );
+  }
   const order = await getOrderById(orderId);
   if (!order) {
     throw new Error(`Order "${orderId}" not found.`);

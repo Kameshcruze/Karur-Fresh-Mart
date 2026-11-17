@@ -1,5 +1,6 @@
 import { MOCK_BANNERS, MOCK_COUPONS, MOCK_OFFERS } from '../mock/offers';
 import type { Banner, Coupon, Offer } from '../types';
+import { apiClient, isMockMode } from './api';
 import { notifyCatalogChanged } from './productService';
 import { readStorageJson, writeStorageJson } from './storage';
 
@@ -62,6 +63,14 @@ export function computeCouponDiscount(coupon: Coupon, subtotal: number): number 
 }
 
 export async function getOffers(onlyActive = true): Promise<Offer[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ offers: Offer[] }>(
+      '/offers',
+      { activeOnly: onlyActive },
+      { skipAuth: true },
+    );
+    return res.offers;
+  }
   const list = loadOffersStore();
   return onlyActive
     ? list.filter((o) => o.active && isWithinOfferWindow(o.startDate, o.endDate ?? o.validTill))
@@ -69,6 +78,11 @@ export async function getOffers(onlyActive = true): Promise<Offer[]> {
 }
 
 export async function saveOffer(offer: Offer): Promise<Offer[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ offers: Offer[] }>('/admin/offers', offer);
+    notifyCatalogChanged();
+    return res.offers;
+  }
   const list = loadOffersStore();
   const normalized: Offer = {
     ...offer,
@@ -85,6 +99,13 @@ export async function saveOffer(offer: Offer): Promise<Offer[]> {
 }
 
 export async function deleteOffer(id: string): Promise<Offer[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.delete<{ offers: Offer[] }>(
+      `/admin/offers/${encodeURIComponent(id)}`,
+    );
+    notifyCatalogChanged();
+    return res.offers;
+  }
   const next = loadOffersStore().filter((o) => o.id !== id);
   writeStorageJson(OFFERS_STORAGE_KEY, next);
   notifyCatalogChanged();
@@ -92,6 +113,14 @@ export async function deleteOffer(id: string): Promise<Offer[]> {
 }
 
 export async function getCoupons(onlyActive = true): Promise<Coupon[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ coupons: Coupon[] }>(
+      '/coupons',
+      { activeOnly: onlyActive },
+      { skipAuth: true },
+    );
+    return res.coupons;
+  }
   const list = loadCouponsStore();
   return onlyActive
     ? list.filter((c) => c.active && isWithinOfferWindow(c.startDate, c.endDate))
@@ -104,6 +133,11 @@ export async function saveCoupon(coupon: Coupon): Promise<Coupon[]> {
     throw new Error('Coupon code is required.');
   }
   const normalized: Coupon = { ...coupon, code };
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ coupons: Coupon[] }>('/admin/coupons', normalized);
+    notifyCatalogChanged();
+    return res.coupons;
+  }
   const list = loadCouponsStore();
   const exists = list.some((c) => c.code.toUpperCase() === code);
   const next = exists
@@ -116,6 +150,13 @@ export async function saveCoupon(coupon: Coupon): Promise<Coupon[]> {
 
 export async function deleteCoupon(code: string): Promise<Coupon[]> {
   const target = code.trim().toUpperCase();
+  if (!isMockMode()) {
+    const res = await apiClient.delete<{ coupons: Coupon[] }>(
+      `/admin/coupons/${encodeURIComponent(target)}`,
+    );
+    notifyCatalogChanged();
+    return res.coupons;
+  }
   const next = loadCouponsStore().filter((c) => c.code.toUpperCase() !== target);
   writeStorageJson(COUPONS_STORAGE_KEY, next);
   notifyCatalogChanged();
@@ -129,6 +170,12 @@ export async function validateCoupon(
   const normalized = code.trim().toUpperCase();
   if (!normalized) {
     return { valid: false, discount: 0, reason: 'Enter a coupon code.' };
+  }
+  if (!isMockMode()) {
+    return apiClient.post<{ valid: boolean; coupon?: Coupon; discount: number; reason?: string }>(
+      '/coupons/validate',
+      { code: normalized, subtotal },
+    );
   }
   const coupon = loadCouponsStore().find(
     (c) =>
@@ -155,6 +202,14 @@ export async function validateCoupon(
 }
 
 export async function getBanners(onlyActive = true): Promise<Banner[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ banners: Banner[] }>(
+      '/banners',
+      { activeOnly: onlyActive },
+      { skipAuth: true },
+    );
+    return res.banners;
+  }
   const list = loadBannersStore();
   return onlyActive
     ? list.filter((b) => b.active && isWithinOfferWindow(b.startDate, b.endDate))
@@ -162,6 +217,11 @@ export async function getBanners(onlyActive = true): Promise<Banner[]> {
 }
 
 export async function saveBanner(banner: Banner): Promise<Banner[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ banners: Banner[] }>('/admin/banners', banner);
+    notifyCatalogChanged();
+    return res.banners;
+  }
   const list = loadBannersStore();
   const exists = list.some((b) => b.id === banner.id);
   const next = exists
@@ -173,6 +233,13 @@ export async function saveBanner(banner: Banner): Promise<Banner[]> {
 }
 
 export async function deleteBanner(id: string): Promise<Banner[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.delete<{ banners: Banner[] }>(
+      `/admin/banners/${encodeURIComponent(id)}`,
+    );
+    notifyCatalogChanged();
+    return res.banners;
+  }
   const next = loadBannersStore().filter((b) => b.id !== id);
   writeStorageJson(BANNERS_STORAGE_KEY, next);
   notifyCatalogChanged();

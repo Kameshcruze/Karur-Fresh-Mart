@@ -1,6 +1,13 @@
 import { KARUR_STORE_COORDS, MOCK_ADDRESSES } from '../mock/addresses';
 import { DEMO_USERS } from '../mock/users';
 import type { Address, DeliverySettings, User, UserRole } from '../types';
+import {
+  apiClient,
+  clearAuthToken,
+  getAuthToken,
+  isMockMode,
+  setAuthToken,
+} from './api';
 import { readStorageJson, writeStorageJson } from './storage';
 
 const USER_STORAGE_KEY = 'kfm_auth_user_v2';
@@ -104,10 +111,17 @@ export function getRoleHomeRoute(role: UserRole): string {
 }
 
 export async function getCurrentUser(): Promise<User> {
+  if (!isMockMode() && getAuthToken()) {
+    const res = await apiClient.get<{ user: User }>('/auth/me');
+    return res.user;
+  }
   return readStorageJson<User>(USER_STORAGE_KEY, DEMO_USERS.customer);
 }
 
 export async function isUserLoggedIn(): Promise<boolean> {
+  if (!isMockMode()) {
+    return Boolean(getAuthToken());
+  }
   return readStorageJson<boolean>(AUTH_LOGGED_IN_KEY, false);
 }
 
@@ -116,15 +130,30 @@ export async function getDemoUsers(): Promise<Record<'customer' | 'admin' | 'del
 }
 
 export async function getRegisteredUsers(): Promise<User[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ users: User[] }>('/admin/users');
+    return res.users;
+  }
   return loadUsersRegistry();
 }
 
 export async function registerOrUpdateUser(user: User): Promise<User[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ users: User[] }>('/admin/users', user);
+    return res.users;
+  }
   saveUserToRegistry(user);
   return loadUsersRegistry();
 }
 
 export async function updateUserRole(userId: string, role: UserRole): Promise<User[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.patch<{ users: User[] }>(
+      `/admin/users/${encodeURIComponent(userId)}/role`,
+      { role },
+    );
+    return res.users;
+  }
   const registry = loadUsersRegistry();
   const next = registry.map((u) => (u.id === userId ? { ...u, role } : u));
   writeStorageJson(USERS_REGISTRY_KEY, next);
@@ -137,6 +166,10 @@ export async function updateUserRole(userId: string, role: UserRole): Promise<Us
 
 export async function lookupUserByMobile(mobile: string): Promise<User | undefined> {
   const normalized = normalizeIndianMobile(mobile);
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ user?: User }>('/auth/lookup', { mobile: normalized });
+    return res.user;
+  }
   const registry = loadUsersRegistry();
   return (
     registry.find((u) => u.mobile === normalized) ??
@@ -147,15 +180,47 @@ export async function lookupUserByMobile(mobile: string): Promise<User | undefin
 /**
  * Generates and dispatches a 4-digit OTP challenge for mobile login/signup.
  *
- * INTEGRATION SEAM (WhatsApp / SMS OTP Provider):
- * Plug a real OTP gateway (e.g., MSG91, Gupshup WhatsApp Business API, or Twilio Verify)
- * right where `generatedOtp` is dispatched below, and remove `otpPreview` from the API payload
- * once backed by a real server endpoint.
+ * INTEGRATION SEAM — WhatsApp OTP (Meta Cloud API Authentication Template):
+ * When `USE_MOCK` is false, `POST /api/auth/otp/request` executes server-side:
+ *   POST https://graph.facebook.com/v21.0/${WHATSAPP_PHONE_NUMBER_ID}/messages
+ *   Authorization: Bearer ${WHATSAPP_CLOUD_API_TOKEN}
+ *   Body:
+ *   {
+ *     "messaging_product": "whatsapp",
+ *     "recipient_type": "individual",
+ *     "to": "91" + normalizedMobile,
+ *     "type": "template",
+ *     "template": {
+ *       "name": "karur_fresh_login_otp",
+ *       "language": { "code": "en" },
+ *       "components": [
+ *         { "type": "body", "parameters": [{ "type": "text", "text": generatedOtp }] },
+ *         { "type": "button", "sub_type": "url", "index": "0", "parameters": [{ "type": "text", "text": generatedOtp }] }
+ *       ]
+ *     }
+ *   }
+ * In production, the server stores a hashed OTP in `otp_challenges` and NEVER returns `otpPreview`.
  */
 export async function requestMobileOtp(mobile: string): Promise<OtpChallengeResponse> {
   const normalized = normalizeIndianMobile(mobile);
   if (!isValidIndianMobile(normalized)) {
     throw new Error('Please enter a valid 10-digit Indian mobile number.');
+  }
+
+  if (!isMockMode()) {
+    const res = await apiClient.post<Partial<OtpChallengeResponse>>(
+      '/auth/otp/request',
+      { mobile: normalized, channel: 'whatsapp_template' },
+      { skipAuth: true },
+    );
+    return {
+      mobile: res.mobile ?? normalized,
+      otpPreview: res.otpPreview ?? '',
+      isNewUser: Boolean(res.isNewUser),
+      existingUserName: res.existingUserName,
+      existingRole: res.existingRole,
+      resendSeconds: res.resendSeconds ?? OTP_RESEND_COOLDOWN_SECONDS,
+    };
   }
 
   const existing = await lookupUserByMobile(normalized);
@@ -169,10 +234,8 @@ export async function requestMobileOtp(mobile: string): Promise<OtpChallengeResp
     resendAvailableAt: now + OTP_RESEND_COOLDOWN_SECONDS * 1000,
   });
 
-  // ---------------------------------------------------------------------------
-  // TODO [OTP Provider Hook]:
-  // await sendWhatsAppOrSmsOtp({ to: `+91${normalized}`, otp: generatedOtp });
-  // ---------------------------------------------------------------------------
+  // TODO [Meta WhatsApp Cloud API Authentication Template Hook]:
+  // await sendWhatsAppAuthOtpTemplate({ to: `91${normalized}`, otp: generatedOtp });
 
   return {
     mobile: normalized,
@@ -200,6 +263,18 @@ export async function verifyMobileOtp(params: {
   }
   if (!/^\d{4}$/.test(trimmedOtp)) {
     throw new Error('Please enter the 4-digit OTP.');
+  }
+
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ token: string; user: User }>(
+      '/auth/otp/verify',
+      { mobile: normalized, otp: trimmedOtp, name: params.name?.trim() },
+      { skipAuth: true },
+    );
+    setAuthToken(res.token);
+    writeStorageJson(USER_STORAGE_KEY, res.user);
+    writeStorageJson(AUTH_LOGGED_IN_KEY, true);
+    return res.user;
   }
 
   const challenge = pendingOtpMap.get(normalized);
@@ -245,6 +320,17 @@ export async function loginWithMobile(mobile: string, name?: string): Promise<Us
   if (cleaned.length < 10) {
     throw new Error('Please enter a valid 10-digit mobile number.');
   }
+  if (!isMockMode()) {
+    const res = await apiClient.post<{ token: string; user: User }>(
+      '/auth/login-mobile',
+      { mobile: cleaned, name: name?.trim() },
+      { skipAuth: true },
+    );
+    setAuthToken(res.token);
+    writeStorageJson(USER_STORAGE_KEY, res.user);
+    writeStorageJson(AUTH_LOGGED_IN_KEY, true);
+    return res.user;
+  }
   const existing = await lookupUserByMobile(cleaned);
   const user: User = existing
     ? { ...existing, name: name?.trim() ? name.trim() : existing.name }
@@ -263,12 +349,23 @@ export async function loginWithMobile(mobile: string, name?: string): Promise<Us
 
 export async function loginAsDemoRole(role: UserRole): Promise<User> {
   const user = DEMO_USERS[role];
+  if (!isMockMode()) {
+    setAuthToken(`demo-token-${role}`);
+  }
   writeStorageJson(USER_STORAGE_KEY, user);
   writeStorageJson(AUTH_LOGGED_IN_KEY, true);
   return user;
 }
 
 export async function logout(): Promise<User> {
+  if (!isMockMode()) {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch {
+      // Always clear local token even if server revoke call fails
+    }
+    clearAuthToken();
+  }
   const guest = DEMO_USERS.customer;
   writeStorageJson(USER_STORAGE_KEY, guest);
   writeStorageJson(AUTH_LOGGED_IN_KEY, false);
@@ -276,6 +373,14 @@ export async function logout(): Promise<User> {
 }
 
 export async function getDeliverySettings(): Promise<DeliverySettings> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ settings: DeliverySettings }>(
+      '/settings/delivery',
+      undefined,
+      { skipAuth: true },
+    );
+    return res.settings;
+  }
   const stored = readStorageJson<Partial<DeliverySettings> | null>(
     DELIVERY_SETTINGS_KEY,
     null,
@@ -303,6 +408,13 @@ export async function getDeliverySettings(): Promise<DeliverySettings> {
 export async function updateDeliverySettings(
   updates: Partial<DeliverySettings>,
 ): Promise<DeliverySettings> {
+  if (!isMockMode()) {
+    const res = await apiClient.put<{ settings: DeliverySettings }>(
+      '/admin/settings/delivery',
+      updates,
+    );
+    return res.settings;
+  }
   const current = await getDeliverySettings();
   const next: DeliverySettings = {
     ...current,
@@ -329,6 +441,10 @@ export async function updateDeliverySettings(
 }
 
 export async function getAddresses(userId?: string): Promise<Address[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ addresses: Address[] }>('/addresses', { userId });
+    return res.addresses;
+  }
   const all = loadAddressesStore();
   return userId ? all.filter((a) => a.userId === userId) : all;
 }
@@ -339,6 +455,16 @@ export async function getDefaultAddress(userId?: string): Promise<Address | unde
 }
 
 export async function saveAddress(address: Address): Promise<Address[]> {
+  if (!isMockMode()) {
+    const isUpdate = Boolean(address.id && !address.id.startsWith('new-'));
+    const res = isUpdate
+      ? await apiClient.put<{ addresses: Address[] }>(
+          `/addresses/${encodeURIComponent(address.id)}`,
+          address,
+        )
+      : await apiClient.post<{ addresses: Address[] }>('/addresses', address);
+    return res.addresses;
+  }
   const list = loadAddressesStore();
   const exists = list.some((a) => a.id === address.id);
   let next = exists
@@ -357,6 +483,12 @@ export async function saveAddress(address: Address): Promise<Address[]> {
 }
 
 export async function deleteAddress(id: string): Promise<Address[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.delete<{ addresses: Address[] }>(
+      `/addresses/${encodeURIComponent(id)}`,
+    );
+    return res.addresses;
+  }
   const list = loadAddressesStore().filter((a) => a.id !== id);
   if (list.length > 0 && !list.some((a) => a.isDefault)) {
     list[0] = { ...list[0], isDefault: true };
@@ -366,6 +498,12 @@ export async function deleteAddress(id: string): Promise<Address[]> {
 }
 
 export async function setDefaultAddress(id: string): Promise<Address[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.patch<{ addresses: Address[] }>(
+      `/addresses/${encodeURIComponent(id)}/default`,
+    );
+    return res.addresses;
+  }
   const next = loadAddressesStore().map((a) => ({
     ...a,
     isDefault: a.id === id,

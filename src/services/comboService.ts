@@ -2,6 +2,7 @@ import { MOCK_BRANDS } from '../mock/brands';
 import { MOCK_COMBOS } from '../mock/combos';
 import { MOCK_PRODUCTS } from '../mock/products';
 import type { Brand, Combo, ComboType, Product } from '../types';
+import { apiClient, isMockMode } from './api';
 import {
   getTotalAvailableQty,
   loadProductsStore,
@@ -155,14 +156,32 @@ export function calculateComboPricing(
 }
 
 export async function getCombos(): Promise<Combo[]> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ combos: Combo[] }>('/combos', undefined, {
+      skipAuth: true,
+    });
+    return res.combos;
+  }
   return loadCombosStore();
 }
 
 export async function getComboById(id: string): Promise<Combo | undefined> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ combo?: Combo }>(`/combos/${encodeURIComponent(id)}`, undefined, {
+      skipAuth: true,
+    });
+    return res.combo;
+  }
   return loadCombosStore().find((c) => c.id === id);
 }
 
 export async function getComboByType(type: ComboType | string): Promise<Combo | undefined> {
+  if (!isMockMode()) {
+    const res = await apiClient.get<{ combo?: Combo }>(`/combos/${encodeURIComponent(type)}`, undefined, {
+      skipAuth: true,
+    });
+    return res.combo;
+  }
   return loadCombosStore().find((c) => c.type === type);
 }
 
@@ -194,6 +213,15 @@ export async function saveCombo(combo: Combo): Promise<Combo[]> {
     customerCanChangeBrand: combo.customerCanChangeBrand !== false,
   };
 
+  if (!isMockMode()) {
+    const res = await apiClient.put<{ combos: Combo[] }>(
+      `/admin/combos/${encodeURIComponent(sanitized.id)}`,
+      sanitized,
+    );
+    notifyCatalogChanged();
+    return res.combos;
+  }
+
   const list = loadCombosStore();
   const exists = list.some((c) => c.id === sanitized.id);
   const next = exists
@@ -208,6 +236,13 @@ export async function priceComboWithBrands(
   comboIdOrType: string,
   selectedBrandProductIds: Record<string, string> = {},
 ): Promise<ComboPriceResult> {
+  if (!isMockMode()) {
+    return apiClient.post<ComboPriceResult>(
+      `/combos/${encodeURIComponent(comboIdOrType)}/price`,
+      { selectedBrandProductIds },
+      { skipAuth: true },
+    );
+  }
   const combos = loadCombosStore();
   const combo = combos.find((c) => c.id === comboIdOrType || c.type === comboIdOrType);
   if (!combo) {
